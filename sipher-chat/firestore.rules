@@ -1,0 +1,589 @@
+rules_version = '2';
+
+// Security rules for Sipher. Deploy with: firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Has an account, approved or not.
+    function authed() {
+      return request.auth != null;
+    }
+
+    function passPath(uid) {
+      return /databases/$(database)/documents/passes/$(uid);
+    }
+
+    // Signed in and let into Sipher (an approved pass, see "access" below).
+    // Almost everything checks this, so banned people can't do anything.
+    function signedIn() {
+      return authed() && exists(passPath(request.auth.uid))
+        && get(passPath(request.auth.uid)).data.approved == true;
+    }
+
+    function isMe(uid) {
+      return authed() && request.auth.uid == uid;
+    }
+
+    function serverPath(sid) {
+      return /databases/$(database)/documents/servers/$(sid);
+    }
+
+    function memberPath(sid, uid) {
+      return /databases/$(database)/documents/servers/$(sid)/members/$(uid);
+    }
+
+    function isMember(sid) {
+      return signedIn() && exists(memberPath(sid, request.auth.uid));
+    }
+
+    // Owner as of before this request (or batch).
+    function isOwner(sid) {
+      return signedIn() && exists(serverPath(sid))
+        && get(serverPath(sid)).data.ownerId == request.auth.uid;
+    }
+
+    // Owner as of after this request; lets the create-server batch add its
+    // first channel and invite before the server doc exists.
+    function isOwnerAfter(sid) {
+      return signedIn() && existsAfter(serverPath(sid))
+        && getAfter(serverPath(sid)).data.ownerId == request.auth.uid;
+    }
+
+    function validName(name, max) {
+      return name is string && name.size() > 0 && name.size() <= max;
+    }
+
+    // Avatars and server icons are small data URLs made by js/image.js.
+    function validImage(v) {
+      return v == null
+        || (v is string && v.size() <= 200000
+          && v.matches("^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$"));
+    }
+
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ---- messages (shared by channels and DMs) ----
+
+    // A new message, optionally replying to or forwarding another one, or
+    // a poll ({ question, options }; the text is the question).
+    function validNewMessage() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["text", "authorId", "authorName", "createdAt", "replyTo", "forwarded", "poll"])
+        && (!("poll" in d) || (d.poll is map
+          && d.poll.keys().hasOnly(["question", "options"])
+          && validName(d.poll.question, 200)
+          && d.poll.options is list
+          && d.poll.options.size() >= 2 && d.poll.options.size() <= 6))
+        && d.authorId == request.auth.uid
+        && validName(d.text, 2000)
+        && d.createdAt == request.time
+        && (!("replyTo" in d) || (d.replyTo is map
+          && d.replyTo.keys().hasOnly(["id", "authorId", "authorName", "text"])
+          && d.replyTo.text is string && d.replyTo.text.size() <= 200))
+        && (!("forwarded" in d) || (d.forwarded is map
+          && d.forwarded.keys().hasOnly(["authorName", "from"])
+          && d.forwarded.authorName is string && d.forwarded.authorName.size() <= 64
+          && d.forwarded.from is string && d.forwarded.from.size() <= 80));
+    }
+
+    function validEdit() {
+      return resource.data.authorId == request.auth.uid
+        && onlyChanged(["text", "editedAt"])
+        && validName(request.resource.data.text, 2000)
+        && request.resource.data.editedAt == request.time;
+    }
+
+    // reactions is { uid: emoji }: anyone in the conversation can set or
+    // clear their own entry, using one of the emoji in js/api.js REACTIONS.
+    function validReaction() {
+      let after = request.resource.data.get("reactions", {});
+      let me = request.auth.uid;
+      return onlyChanged(["reactions"])
+        && after is map
+        && after.size() <= 200
+        && after.diff(resource.data.get("reactions", {})).affectedKeys().hasOnly([me])
+        && (!(me in after) || after[me] in ["👍", "💜", "😂", "😮", "😢", "🔥", "💀", "🎉"]);
+    }
+
+    function validPin() {
+      return onlyChanged(["pinned"]) && request.resource.data.pinned is bool;
+    }
+
+    // votes is { uid: option index } on a poll: one vote each, your own only.
+    function validVote() {
+      let after = request.resource.data.get("votes", {});
+      let me = request.auth.uid;
+      return "poll" in resource.data
+        && onlyChanged(["votes"])
+        && after is map
+        && after.size() <= 500
+        && after.diff(resource.data.get("votes", {})).affectedKeys().hasOnly([me])
+        && (!(me in after) || (after[me] is int
+          && after[me] >= 0 && after[me] < resource.data.poll.options.size()));
+    }
+
+    // ---- users ----
+
+    function validUsername(name) {
+      return name is string && name.matches("^[a-z0-9_.]{3,20}$");
+    }
+
+    function usernamePath(name) {
+      return /databases/$(database)/documents/usernames/$(name);
+    }
+
+    // A new username must be claimed in the same batch (usernames/{name}),
+    // and can only change once every 30 days.
+    function validUsernameChange(uid) {
+      let d = request.resource.data;
+      return validUsername(d.username)
+        && d.usernameChangedAt == request.time
+        && existsAfter(usernamePath(d.username))
+        && getAfter(usernamePath(d.username)).data.uid == uid
+        && (!("usernameChangedAt" in resource.data)
+          || request.time > resource.data.usernameChangedAt + duration.value(30, "d"));
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() || isMe(uid);
+      allow create: if isMe(uid)
+        && request.resource.data.uid == uid
+        && validName(request.resource.data.displayName, 64)
+        && validImage(request.resource.data.get("photoURL", null))
+        && !("username" in request.resource.data)
+        && !("usernameChangedAt" in request.resource.data);
+      allow update: if isMe(uid)
+        && request.resource.data.uid == uid
+        && validName(request.resource.data.displayName, 64)
+        && validImage(request.resource.data.get("photoURL", null))
+        && request.resource.data.get("about", "") is string
+        && request.resource.data.get("about", "").size() <= 190
+        && (!request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(["username", "usernameChangedAt"])
+          || validUsernameChange(uid));
+      allow delete: if false;
+
+      // Each user's own list of joined servers (drives the server rail).
+      match /servers/{sid} {
+        allow read, delete: if isMe(uid);
+        allow create: if isMe(uid) && existsAfter(memberPath(sid, uid));
+        allow update: if isMe(uid) && onlyChanged(["name"]);
+      }
+    }
+
+    // ---- usernames ----
+    // usernames/{name} -> { uid }. Look-ups by exact name only, never a list.
+    match /usernames/{name} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && validUsername(name)
+        && request.resource.data.keys().hasOnly(["uid"])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("username", "") == name;
+      // Released when its owner switches to a different name.
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("username", "") != name;
+    }
+
+    // ---- friends ----
+
+    function pairId(a, b) {
+      return a < b ? a + "_" + b : b + "_" + a;
+    }
+
+    // requests/{from}_{to}: a pending friend request with an optional note.
+    match /requests/{rid} {
+      allow read: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(["from", "to", "fromName", "fromUsername", "toName", "toUsername", "note", "createdAt"])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && rid == request.auth.uid + "_" + request.resource.data.to
+        && request.resource.data.fromName is string && request.resource.data.fromName.size() <= 64
+        && request.resource.data.toName is string && request.resource.data.toName.size() <= 64
+        && request.resource.data.fromUsername is string && request.resource.data.fromUsername.size() <= 20
+        && request.resource.data.toUsername is string && request.resource.data.toUsername.size() <= 20
+        && request.resource.data.note is string && request.resource.data.note.size() <= 200
+        && request.resource.data.createdAt == request.time
+        && !exists(/databases/$(database)/documents/friendships/$(pairId(request.auth.uid, request.resource.data.to)))
+        && !blockedEitherWay(request.auth.uid, request.resource.data.to);
+      // Either side can drop it (decline, cancel, accept, or block). The id
+      // is always from_to, so it names both people.
+      allow delete: if signedIn() && request.auth.uid in rid.split("_");
+    }
+
+    // ---- blocking ----
+    // blocks/{blocker}_{blocked}. Only the blocker can see or undo it; the
+    // rules for friend requests and DMs check it.
+
+    function blockPath(a, b) {
+      return /databases/$(database)/documents/blocks/$(a + "_" + b);
+    }
+
+    function blockedEitherWay(a, b) {
+      return exists(blockPath(a, b)) || exists(blockPath(b, a));
+    }
+
+    match /blocks/{bid} {
+      allow read: if signedIn() && resource.data.from == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(["from", "to", "createdAt"])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && bid == request.auth.uid + "_" + request.resource.data.to
+        && request.resource.data.createdAt == request.time;
+      allow delete: if signedIn() && resource.data.from == request.auth.uid;
+    }
+
+    // friendships/{uidA_uidB}, sorted like DMs. Made by the person accepting
+    // a request the other one sent; either friend can end it.
+    match /friendships/{fid} {
+      allow get: if inDm(fid);
+      allow list: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if inDm(fid)
+        && fid.split("_").size() == 2
+        && fid.split("_")[0] < fid.split("_")[1]
+        && request.resource.data.members == fid.split("_")
+        && request.resource.data.keys().hasOnly(["members", "createdAt"])
+        && request.resource.data.createdAt == request.time
+        && exists(/databases/$(database)/documents/requests/$(
+             (fid.split("_")[0] == request.auth.uid ? fid.split("_")[1] : fid.split("_")[0])
+             + "_" + request.auth.uid));
+      allow delete: if inDm(fid);
+    }
+
+    // ---- invites ----
+
+    match /invites/{code} {
+      // Knowing the code is the secret, so allow get but never list.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if isOwnerAfter(request.resource.data.serverId)
+        && getAfter(serverPath(request.resource.data.serverId)).data.inviteCode == code;
+      allow update: if isOwner(resource.data.serverId) && onlyChanged(["serverName"]);
+      allow delete: if isOwner(resource.data.serverId);
+    }
+
+    // ---- direct messages ----
+    // dms/{uidA_uidB}: ids are the two user ids, sorted and joined with "_",
+    // so membership can be read straight from the path.
+
+    function inDm(dmId) {
+      return signedIn() && request.auth.uid in dmId.split("_");
+    }
+
+    match /dms/{dmId} {
+      allow get: if inDm(dmId);
+      allow list: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if inDm(dmId)
+        && dmId.split("_").size() == 2
+        && dmId.split("_")[0] < dmId.split("_")[1]
+        && request.resource.data.members == dmId.split("_")
+        && request.resource.data.keys().hasOnly(["members", "createdAt", "lastMessageAt", "lastMessageBy"]);
+      allow update: if inDm(dmId)
+        && onlyChanged(["lastMessageAt", "lastMessageBy"])
+        && request.resource.data.lastMessageBy == request.auth.uid
+        && request.resource.data.lastMessageAt == request.time;
+
+      match /messages/{mid} {
+        allow read: if inDm(dmId);
+        // Not while either person has blocked the other.
+        allow create: if inDm(dmId) && validNewMessage()
+          && !blockedEitherWay(dmId.split("_")[0], dmId.split("_")[1]);
+        // Both people can react, vote and pin in a DM.
+        allow update: if inDm(dmId)
+          && (validEdit() || validReaction() || validVote() || validPin());
+        allow delete: if inDm(dmId) && resource.data.authorId == request.auth.uid;
+      }
+    }
+
+    // ---- presence ----
+    // presence/online holds { seen: { uid: time } } for everyone. Each person
+    // may only stamp their own entry with the current time.
+    match /presence/{docId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && docId == "online"
+        && request.resource.data.keys().hasOnly(["seen"])
+        && request.resource.data.seen is map
+        && request.resource.data.seen.diff(
+             resource == null ? {} : resource.data.get("seen", {})
+           ).affectedKeys().hasOnly([request.auth.uid])
+        && request.resource.data.seen[request.auth.uid] == request.time;
+    }
+
+    // ---- app settings ----
+    // Managed by the owner of the main server: the one behind the invite in
+    // js/config.js (DEFAULT_INVITE). Keep the two in sync.
+
+    function isAppAdmin() {
+      let invite = /databases/$(database)/documents/invites/N4bVJRRD;
+      return signedIn() && exists(invite)
+        && get(serverPath(get(invite).data.serverId)).data.ownerId == request.auth.uid;
+    }
+
+    match /config/giphy {
+      allow read: if signedIn();
+      allow write: if isAppAdmin()
+        && request.resource.data.keys().hasOnly(["key"])
+        && request.resource.data.key is string
+        && request.resource.data.key.size() <= 64;
+    }
+
+    // ---- access: who may use Sipher at all ----
+    // passes/{uid}: { uid, name, approved, via, createdAt } (+ note, code).
+    // People who were already in the main server get one straight away;
+    // anyone else needs the access code and then the admin's approval.
+    // bans/{uid}: banned by the admin; they can't get a pass again.
+
+    function mainServerId() {
+      return get(/databases/$(database)/documents/invites/N4bVJRRD).data.serverId;
+    }
+
+    function banPath(uid) {
+      return /databases/$(database)/documents/bans/$(uid);
+    }
+
+    match /passes/{uid} {
+      allow get: if isMe(uid) || isAppAdmin();
+      allow list: if isAppAdmin();
+      allow create: if isMe(uid)
+        && !exists(banPath(uid))
+        && request.resource.data.uid == uid
+        && validName(request.resource.data.name, 64)
+        && request.resource.data.createdAt == request.time
+        && ((request.resource.data.keys().hasOnly(["uid", "name", "approved", "via", "createdAt"])
+            && request.resource.data.approved == true
+            && request.resource.data.via == "existing"
+            && exists(memberPath(mainServerId(), uid)))
+          || (request.resource.data.keys().hasOnly(["uid", "name", "approved", "via", "note", "code", "createdAt"])
+            && request.resource.data.approved == false
+            && request.resource.data.via == "code"
+            && request.resource.data.note is string
+            && request.resource.data.note.size() <= 100
+            && exists(/databases/$(database)/documents/config/access)
+            && request.resource.data.code == get(/databases/$(database)/documents/config/access).data.code));
+      allow update: if isAppAdmin()
+        && onlyChanged(["approved"])
+        && request.resource.data.approved == true;
+      allow delete: if isAppAdmin();
+    }
+
+    match /bans/{uid} {
+      allow get: if isMe(uid) || isAppAdmin();
+      allow list: if isAppAdmin();
+      allow create: if isAppAdmin()
+        && uid != request.auth.uid
+        && request.resource.data.keys().hasOnly(["uid", "name", "by", "createdAt"])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 64
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow delete: if isAppAdmin();
+    }
+
+    // The access code new people type in. Only the admin can see it.
+    match /config/access {
+      allow read: if isAppAdmin();
+      allow write: if isAppAdmin()
+        && request.resource.data.keys().hasOnly(["code"])
+        && request.resource.data.code is string
+        && request.resource.data.code.matches("^[A-Z0-9]{4,12}$");
+    }
+
+    // ---- GIF search (see js/gifs.js) ----
+
+    // Shared GIPHY results, so one search serves everyone. Entries hold only
+    // GIF ids and sizes; the client rebuilds (and checks) the URLs.
+    match /gifCache/{key} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.data.keys().hasOnly(["query", "results", "fetchedAt"])
+        && request.resource.data.query is string
+        && request.resource.data.query.size() <= 50
+        && request.resource.data.results is list
+        && request.resource.data.results.size() <= 50
+        && request.resource.data.fetchedAt == request.time;
+    }
+
+    // Calls made to GIPHY in each hour (doc id = hours since 1970). It can
+    // only go up by one, and only for the current hour.
+    match /gifQuota/{hour} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && hour == string(int(request.time.toMillis() / 3600000))
+        && request.resource.data.keys().hasOnly(["count"])
+        && request.resource.data.count == 1;
+      allow update: if signedIn()
+        && hour == string(int(request.time.toMillis() / 3600000))
+        && request.resource.data.keys().hasOnly(["count"])
+        && request.resource.data.count == resource.data.count + 1;
+    }
+
+    // ---- reports ----
+    // reports/{id}: a message flagged by a member, for the server's owner
+    // and moderators.
+    match /reports/{rid} {
+      allow read, delete: if isMod(resource.data.serverId);
+      allow create: if isMember(request.resource.data.serverId)
+        && request.resource.data.keys().hasOnly(["serverId", "channelId", "channelName", "messageId", "authorId", "authorName", "text", "reason", "reporterId", "reporterName", "createdAt"])
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.channelId is string
+        && request.resource.data.messageId is string
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 300
+        && request.resource.data.channelName is string && request.resource.data.channelName.size() <= 32
+        && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 64
+        && request.resource.data.reporterName is string && request.resource.data.reporterName.size() <= 64
+        && request.resource.data.createdAt == request.time;
+    }
+
+    // ---- servers ----
+
+    // The owner, or a member the owner made a moderator ("mod").
+    function isMod(sid) {
+      return isOwner(sid)
+        || (isMember(sid) && get(memberPath(sid, request.auth.uid)).data.get("role", "member") == "mod");
+    }
+
+    match /servers/{sid} {
+      allow read: if isMember(sid);
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && validName(request.resource.data.name, 50)
+        && validImage(request.resource.data.get("icon", null))
+        && existsAfter(memberPath(sid, request.auth.uid));
+      // categories: the channel sections, [{ id, name }] in order.
+      // welcome / rules: shown to new members. filter / filterWords: the
+      // swear-word filter.
+      allow update: if isOwner(sid)
+        && onlyChanged(["name", "inviteCode", "icon", "categories", "welcome", "rules", "rulesUpdatedAt", "filter", "filterWords"])
+        && validName(request.resource.data.name, 50)
+        && validImage(request.resource.data.get("icon", null))
+        && request.resource.data.get("categories", []) is list
+        && request.resource.data.get("categories", []).size() <= 30
+        && request.resource.data.get("welcome", "") is string
+        && request.resource.data.get("welcome", "").size() <= 1000
+        && request.resource.data.get("rules", "") is string
+        && request.resource.data.get("rules", "").size() <= 2000
+        && request.resource.data.get("filter", false) is bool
+        && request.resource.data.get("filterWords", []) is list
+        && request.resource.data.get("filterWords", []).size() <= 50
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["rulesUpdatedAt"])
+          || request.resource.data.rulesUpdatedAt == request.time);
+      allow delete: if isOwner(sid);
+
+      match /members/{uid} {
+        allow read: if isMember(sid);
+
+        // Either the owner joining their brand-new server, or someone joining
+        // with a valid invite code for this server.
+        allow create: if isMe(uid) && signedIn()
+          && request.resource.data.uid == uid
+          && validName(request.resource.data.displayName, 64)
+          && validImage(request.resource.data.get("photoURL", null))
+          && (
+            (request.resource.data.role == "owner"
+              && !exists(serverPath(sid))
+              && getAfter(serverPath(sid)).data.ownerId == uid)
+            ||
+            (request.resource.data.role == "member"
+              && exists(/databases/$(database)/documents/invites/$(request.resource.data.invite))
+              && get(/databases/$(database)/documents/invites/$(request.resource.data.invite)).data.serverId == sid)
+          );
+
+        // Your own name and picture, and accepting the rules (the time they
+        // were last changed, in ms). The owner can make people moderators.
+        allow update: if (isMe(uid) && signedIn()
+            && onlyChanged(["displayName", "photoURL", "rulesAccepted"])
+            && validName(request.resource.data.displayName, 64)
+            && validImage(request.resource.data.get("photoURL", null))
+            && request.resource.data.get("rulesAccepted", 0) is number)
+          || (isOwner(sid)
+            && onlyChanged(["role"])
+            && resource.data.role != "owner"
+            && request.resource.data.role in ["member", "mod"]);
+
+        // Members can leave (the owner can't, they delete the server);
+        // the owner can kick anyone, moderators can kick regular members.
+        allow delete: if (isMe(uid) && resource.data.role != "owner")
+          || isOwner(sid)
+          || (isMod(sid) && resource.data.role == "member");
+      }
+
+      match /channels/{cid} {
+        allow read: if isMember(sid);
+        // position and categoryId place the channel in the sidebar.
+        // private: only the owner can see it. readOnly: only the owner posts.
+        allow create, update: if isOwnerAfter(sid)
+          && validName(request.resource.data.name, 32)
+          && request.resource.data.name.matches("^[a-z0-9_-]+$")
+          && request.resource.data.get("position", 0) is number
+          && (request.resource.data.get("categoryId", null) == null
+            || request.resource.data.categoryId is string)
+          && request.resource.data.get("private", false) is bool
+          && request.resource.data.get("readOnly", false) is bool
+          && request.resource.data.get("slowMode", 0) is int
+          && request.resource.data.get("slowMode", 0) >= 0
+          && request.resource.data.get("slowMode", 0) <= 3600;
+        allow delete: if isOwner(sid);
+
+        function channelData() {
+          return get(/databases/$(database)/documents/servers/$(sid)/channels/$(cid)).data;
+        }
+
+        // private: only the owner and moderators see it.
+        function canSee() {
+          return channelData().get("private", false) != true || isMod(sid);
+        }
+
+        // readOnly: only the owner and moderators post.
+        function canPost() {
+          return isMod(sid)
+            || (channelData().get("private", false) != true
+              && channelData().get("readOnly", false) != true);
+        }
+
+        function slowPath() {
+          return /databases/$(database)/documents/servers/$(sid)/channels/$(cid)/slow/$(request.auth.uid);
+        }
+
+        // Slow mode: the same batch must stamp slow/{you} with now, and your
+        // previous stamp must be old enough. Moderators skip it.
+        function slowOk() {
+          let secs = channelData().get("slowMode", 0);
+          return secs == 0 || isMod(sid)
+            || (existsAfter(slowPath())
+              && getAfter(slowPath()).data.at == request.time
+              && (!exists(slowPath())
+                || request.time > get(slowPath()).data.at + duration.value(secs, "s")));
+        }
+
+        match /slow/{uid} {
+          allow read: if isMe(uid);
+          allow create, update: if isMe(uid) && isMember(sid)
+            && request.resource.data.keys().hasOnly(["at"])
+            && request.resource.data.at == request.time;
+        }
+
+        match /messages/{mid} {
+          allow read: if isMember(sid) && canSee();
+          allow create: if isMember(sid) && validNewMessage() && canPost() && slowOk();
+          // Authors edit, members react and vote, moderators pin.
+          allow update: if isMember(sid) && canSee()
+            && (validEdit() || validReaction() || validVote() || (validPin() && isMod(sid)));
+          allow delete: if isMember(sid)
+            && (resource.data.authorId == request.auth.uid || isMod(sid));
+        }
+      }
+    }
+  }
+}

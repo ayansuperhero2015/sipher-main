@@ -1,0 +1,195 @@
+import { Trans, useLingui } from "@lingui/solid/macro";
+import { Server } from "stoat.js";
+
+import { useUser } from "@revolt/client";
+import { TextWithEmoji } from "@revolt/markdown";
+import { useModals } from "@revolt/modal";
+import { ColouredText } from "@revolt/ui";
+import { Symbol } from "@revolt/ui/components/utils/Symbol";
+
+import { SettingsConfiguration } from ".";
+import { ChannelPermissionsEditor } from "./channel/permissions/ChannelPermissionsEditor";
+import Overview from "./server/Overview";
+import { ListServerBans } from "./server/bans/ListBans";
+import { EmojiList } from "./server/emojis/EmojiList";
+import { ListServerInvites } from "./server/invites/ListServerInvites";
+import { ServerRoleEditor } from "./server/roles/ServerRoleEditor";
+import { ServerRoleOverview } from "./server/roles/ServerRoleOverview";
+import { Discoverable } from "./shared/Discoverable";
+import { BackCard } from "./user/_AccountCard";
+
+const Config: SettingsConfiguration<Server> = {
+  /**
+   * Page titles
+   * @param key
+   */
+  title(ctx, key) {
+    const { t } = useLingui();
+
+    if (key.startsWith("roles/")) {
+      if (key === "roles/default") return t`Everyone`;
+
+      return ctx.context.roles.get(key.substring(6))?.name ?? "";
+    }
+
+    return ctx.entries
+      .flatMap((category) => category.entries)
+      .find((entry) => entry.id === key)?.title as string;
+  },
+
+  /**
+   * Render the current server settings page
+   */
+  // we take care of the reactivity ourselves
+  /* eslint-disable solid/components-return-once */
+  render(props, server) {
+    const id = props.page();
+
+    if (!server.$exists) {
+      useModals().pop();
+      return null;
+    }
+
+    if (id?.startsWith("roles/")) {
+      if (id === "roles/default") {
+        return (
+          <ChannelPermissionsEditor type="server_default" context={server} />
+        );
+      }
+
+      return <ServerRoleEditor context={server} roleId={id.substring(6)} />;
+    }
+
+    switch (id) {
+      case "overview":
+        return <Overview server={server} />;
+      case "discover":
+        return <Discoverable discoverable={server} fullPage={true} />;
+      case "emojis":
+        return <EmojiList server={server} />;
+      case "roles":
+        return <ServerRoleOverview context={server} />;
+      case "invites":
+        return <ListServerInvites server={server} />;
+      case "bans":
+        return <ListServerBans server={server} />;
+
+      default:
+        return null;
+    }
+  },
+  /* eslint-enable solid/components-return-once */
+
+  /**
+   * Generate list of categories / entries for server settings
+   * @returns List
+   */
+  list(server, onClose) {
+    const user = useUser();
+    const { openModal } = useModals();
+
+    return {
+      context: server,
+      prepend: <BackCard onClose={onClose} />,
+      entries: [
+        {
+          title: <TextWithEmoji content={server.name} />,
+          entries: [
+            {
+              id: "overview",
+              icon: <Symbol size={20}>info</Symbol>,
+              title: <Trans>Overview</Trans>,
+            },
+            {
+              id: "discover",
+              hidden: !(server.ownerId === user()?.id),
+              icon: <Symbol size={20}>public</Symbol>,
+              title: <Trans>Discover</Trans>,
+            },
+          ],
+        },
+        {
+          hidden: !server.havePermission("ManageCustomisation"),
+          title: <Trans>Customisation</Trans>,
+          entries: [
+            {
+              id: "emojis",
+              icon: <Symbol size={20}>mood</Symbol>,
+              title: <Trans>Emojis</Trans>,
+            },
+          ],
+        },
+        {
+          hidden:
+            !server.havePermission("ManageServer") &&
+            !server.havePermission("BanMembers"),
+          title: <Trans>User Management</Trans>,
+          entries: [
+            {
+              hidden: true,
+              id: "members",
+              icon: <Symbol size={20}>group</Symbol>,
+              title: <Trans>Members</Trans>,
+            },
+            {
+              hidden: !(
+                server.havePermission("ManageRole") ||
+                server.havePermission("ManagePermissions")
+              ),
+              id: "roles",
+              icon: <Symbol size={20}>flag</Symbol>,
+              title: <Trans>Roles</Trans>,
+            },
+            {
+              hidden: !server.havePermission("ManageServer"),
+              id: "invites",
+              icon: <Symbol size={20}>link</Symbol>,
+              title: <Trans>Invites</Trans>,
+            },
+            {
+              hidden: !server.havePermission("BanMembers"),
+              id: "bans",
+              icon: <Symbol size={20}>gavel</Symbol>,
+              title: <Trans>Bans</Trans>,
+            },
+          ],
+        },
+        {
+          hidden: !(server.ownerId === user()?.id),
+          entries: [
+            {
+              icon: (
+                <Symbol size={20} color="var(--md-sys-color-error)">
+                  delete
+                </Symbol>
+              ),
+              title: (
+                <ColouredText colour="var(--md-sys-color-error)">
+                  <Trans>Delete Server</Trans>
+                </ColouredText>
+              ),
+              /**
+               * Handle server deletion request
+               */
+              onClick() {
+                openModal({
+                  type: "delete_server",
+                  server,
+                });
+              },
+            },
+          ],
+        },
+      ],
+    };
+  },
+};
+
+export default Config;
+
+export type ServerSettingsProps = {
+  /**
+   * Server
+   */
+  server: Server;
+};

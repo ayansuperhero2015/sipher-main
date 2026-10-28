@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "typing": {
+      "$convo": {
+        ".read": "auth != null && (!$convo.beginsWith('d_') || $convo.contains(auth.uid))",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && (!$convo.beginsWith('d_') || $convo.contains(auth.uid))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('at').val() === now)"
+        }
+      }
+    },
+    "activity": {
+      "$serverId": {
+        ".read": "auth != null",
+        "$channelId": {
+          ".write": "auth != null",
+          ".validate": "!newData.exists() || (newData.child('by').val() === auth.uid && newData.child('at').val() === now)",
+          "at": { ".validate": "newData.isNumber()" },
+          "by": { ".validate": "newData.isString()" },
+          "everyoneAt": { ".validate": "newData.isNumber()" },
+          "everyoneBy": { ".validate": "newData.val() === auth.uid" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "pings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$key": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['at', 'by', 'name', 'channel']) && newData.child('at').val() === now && newData.child('by').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('channel').isString() && newData.child('channel').val().length <= 32"
+        }
+      }
+    }
+  }
+}

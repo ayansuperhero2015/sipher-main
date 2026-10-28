@@ -1,0 +1,160 @@
+import { Accessor, createMemo } from "solid-js";
+
+import type {
+  Completion,
+  CompletionContext,
+  CompletionResult,
+} from "@codemirror/autocomplete";
+import { User } from "stoat.js";
+
+import { useClient } from "@revolt/client";
+import {
+  isRegionalIndicator,
+  UNICODE_EMOJI_PACK_PUA,
+  UNICODE_ZWNJ,
+  unicodeEmojiUrl,
+} from "@revolt/markdown/emoji/UnicodeEmoji";
+import { useState } from "@revolt/state";
+
+import { AutoCompleteSearchSpace } from "../../utils/autoComplete";
+
+import { EMOJI_KEYS, getEmojiByShorthand } from "@revolt/ui/emojis";
+import { isInCodeBlock } from "./codeMirrorCommon";
+
+const MAPPED_EMOJI_KEYS = EMOJI_KEYS.values()
+  .toArray()
+  .map(
+    (id) =>
+      ({
+        type: "emoji",
+        label: `:${id}:`,
+        apply: getEmojiByShorthand(id)?.emoji,
+      }) as Completion,
+  );
+
+const RE_match = /(?<!\p{L}\w)[:@%#][\p{L}\w\-+]*/u;
+const RE_emojiValidFor = /(?<!\p{L}\w):[\p{L}\w\-+]*/u;
+const RE_mentionValidFor = /(?<!\p{L}\w)@[\p{L}\w\-+]*/u;
+const RE_roleValidFor = /(?<!\p{L}\w)@[\p{L}\w\-+]*/u;
+const RE_channelValidFor = /(?<!\p{L}\w)#[\p{L}\w\-+]*/u;
+
+export function codeMirrorAutoCompleteSource(
+  searchSpace: Accessor<AutoCompleteSearchSpace>,
+) {
+  const state = useState();
+  const client = useClient();
+
+  const emoji = createMemo(() => {
+    return ([] as Completion[]).concat(
+      MAPPED_EMOJI_KEYS.map((emoji) => ({
+        ...emoji,
+        apply: `${UNICODE_EMOJI_PACK_PUA[state.settings.getValue("appearance:unicode_emoji")!] ?? ""}${isRegionalIndicator(emoji.apply as string) ? UNICODE_ZWNJ : ""}${emoji.apply as string}`,
+        url: unicodeEmojiUrl(
+          state.settings.getValue("appearance:unicode_emoji"),
+          emoji.apply as string,
+        ),
+      })),
+      (searchSpace()?.emojis ?? client().emojis.toList()).map((emoji) => ({
+        type: "emoji",
+        label: `:${emoji.name}:`,
+        apply: `:${emoji.id}: `,
+        url: emoji.url,
+      })),
+    );
+  });
+
+  const users = createMemo(() =>
+    (
+      searchSpace()?.members ??
+      searchSpace()?.users ??
+      client().users.toList()
+    ).map((entry) => {
+      // avoiding using `instanceof`, presumed slow
+      const user = ((entry as { user: User })?.user ?? entry) as User;
+
+      // Only hit the store once to reduce watchers.
+      // If you need to access anything on the member more than once define a const here.
+      const displayName = entry.displayName;
+      const userName = user.username;
+      const id = entry.id;
+
+      return {
+        type: "user",
+        label: ("@" + displayName).normalize("NFKC"),
+        displayLabel: displayName,
+        detail:
+          displayName !== userName
+            ? `${userName}#${user.discriminator}`
+            : undefined,
+        apply: `<@${typeof id === "string" ? id : id.user}> `,
+        url: entry.animatedAvatarURL,
+      };
+    }),
+  );
+
+  const roles = createMemo(() => {
+    return (
+      searchSpace()?.roles?.map(
+        (entry) =>
+          ({
+            type: "role",
+            label: ("%" + entry.name).normalize("NFKC"),
+            displayLabel: entry.name,
+            apply: `<%${entry.id}> `,
+            colour: entry.colour,
+          }) as Completion,
+      ) ?? []
+    );
+  });
+
+  const channels = createMemo(() =>
+    (searchSpace()?.channels ?? client().channels.toList()).map(
+      (entry) =>
+        ({
+          type: "channel",
+          label: ("#" + entry.name).normalize("NFKC"),
+          displayLabel: "#" + entry.name,
+          apply: `<#${entry.id}> `,
+        }) as Completion,
+    ),
+  );
+
+  // eslint-disable-next-line solid/reactivity
+  return (context: CompletionContext) => {
+    if (isInCodeBlock(context.state, context.pos, context.pos)) {
+      return null;
+    }
+
+    const token = context.matchBefore(RE_match);
+    if (!token) return null;
+    const normalizedText = token.text.normalize("NFKC");
+    switch (normalizedText[0]) {
+      case ":":
+        return {
+          from: token.from,
+          options: emoji(),
+          validFor: RE_emojiValidFor,
+        } as CompletionResult;
+      case "@":
+        return {
+          from: token.from,
+          options: users(),
+          validFor: RE_mentionValidFor,
+        } as CompletionResult;
+      case "%":
+        return {
+          from: token.from,
+          options: roles(),
+          validFor: RE_roleValidFor,
+        } as CompletionResult;
+      case "#":
+        return {
+          from: token.from,
+          options: channels(),
+          validFor: RE_channelValidFor,
+        } as CompletionResult;
+      default:
+        return null;
+    }
+  };
+}

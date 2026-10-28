@@ -1,0 +1,121 @@
+import { Match, Switch } from "solid-js";
+
+import {
+  ImageEmbed,
+  MessageEmbed,
+  TextEmbed as TextEmbedClass,
+  VideoEmbed,
+  WebsiteEmbed,
+} from "stoat.js";
+import { css } from "styled-system/css";
+
+import { isGifBox, isGif as isGifLib } from "@revolt/common/lib/gifs";
+import { useModals } from "@revolt/modal";
+import { SizedContent } from "@revolt/ui/components/utils";
+
+import { MessageContextMenu } from "@revolt/app";
+import { TextEmbed } from "./TextEmbed";
+
+/**
+ * Render a given embed
+ */
+export function Embed(props: { embed: MessageEmbed }) {
+  const { openModal } = useModals();
+
+  /**
+   * Whether the embed is a GIF
+   */
+  const isGIF = () => isGifLib(props.embed);
+
+  /**
+   * Whether there is a video
+   */
+  const video = () =>
+    (props.embed.type === "Video"
+      ? (props.embed as VideoEmbed)
+      : isGIF() && (props.embed as WebsiteEmbed).video) || undefined;
+
+  /**
+   * Whether there is a image
+   */
+  const image = () =>
+    (props.embed.type === "Image"
+      ? (props.embed as ImageEmbed)
+      : isGIF() && (props.embed as WebsiteEmbed).image) || undefined;
+
+  /**
+   * Link to the page the embed came from (not the raw media)
+   */
+  const pageUrl = () =>
+    props.embed.type === "Website"
+      ? (props.embed as WebsiteEmbed).originalUrl ||
+        (props.embed as WebsiteEmbed).url
+      : undefined;
+
+  return (
+    <Switch fallback={`Could not render ${props.embed.type}!`}>
+      <Match when={image()}>
+        <SizedContent width={image()!.width} height={image()!.height}>
+          <img
+            // bypass proxy for known GIF providers
+            // TODO: Remove the Gifbox check here once gifbox embeds are fixed
+            src={
+              isGIF() && !isGifBox(props.embed)
+                ? image()!.url
+                : image()!.proxiedURL
+            }
+            use:floating={{
+              contextMenu: () => <MessageContextMenu file={image()} />,
+            }}
+            loading="lazy"
+            class={css({ cursor: "pointer" })}
+            onClick={() =>
+              openModal({
+                type: "image_viewer",
+                embed: image(),
+                originalUrl: pageUrl(),
+              })
+            }
+          />
+        </SizedContent>
+      </Match>
+      <Match when={video()}>
+        <SizedContent width={video()!.width} height={video()!.height}>
+          <video
+            playsinline
+            loop={isGIF()}
+            muted={isGIF()}
+            autoplay={isGIF()}
+            controls={!isGIF()}
+            preload="metadata"
+            // bypass proxy for known GIF providers
+            // TODO: Remove the Gifbox check here once gifbox embeds are fixed
+            src={
+              isGIF() && !isGifBox(props.embed)
+                ? video()!.url
+                : video()!.proxiedURL
+            }
+            use:floating={{
+              contextMenu: () => <MessageContextMenu file={video()} />,
+            }}
+            class={css({ cursor: isGIF() ? "pointer" : "unset" })}
+            onClick={() =>
+              isGIF() &&
+              openModal({
+                type: "image_viewer",
+                gif: video(),
+                originalUrl: pageUrl(),
+              })
+            }
+          />
+        </SizedContent>
+      </Match>
+      <Match
+        when={props.embed.type === "Website" || props.embed.type === "Text"}
+      >
+        <TextEmbed embed={props.embed as WebsiteEmbed | TextEmbedClass} />
+      </Match>
+      <Match when={props.embed.type === "None"}> </Match>
+    </Switch>
+  );
+}

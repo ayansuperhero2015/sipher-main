@@ -1,0 +1,147 @@
+import { createMemo, Show } from "solid-js";
+import { useMediaDeviceSelect } from "solid-livekit-components";
+
+import { Trans } from "@lingui/solid/macro";
+
+import { useInstance } from "@revolt/instance";
+import { stoatSinkName } from "@revolt/rtc";
+import { useState } from "@revolt/state";
+import {
+  CategoryButton,
+  CategorySelectOption,
+  Column,
+  Slider,
+  Text,
+} from "@revolt/ui";
+import { Symbol } from "@revolt/ui/components/utils/Symbol";
+
+/**
+ * Input options
+ */
+export function VoiceInputOptions() {
+  const { limits } = useInstance();
+
+  return (
+    <Column>
+      <CategoryButton.Group>
+        <SelectInput kind="audioinput" />
+        <SelectInput kind="audiooutput" />
+        <Show when={limits().video}>
+          <SelectInput kind="videoinput" />
+        </Show>
+      </CategoryButton.Group>
+      <VolumeSliders />
+    </Column>
+  );
+}
+
+/**
+ * Select input device w/ type
+ */
+function SelectInput(props: { kind: MediaDeviceKind }) {
+  const state = useState();
+  const media = createMemo(() => useMediaDeviceSelect({ kind: props.kind }));
+
+  const setKey = () =>
+    props.kind === "videoinput"
+      ? "preferredVideoDevice"
+      : props.kind === "audioinput"
+        ? "preferredAudioInputDevice"
+        : "preferredAudioOutputDevice";
+
+  const icon = () =>
+    props.kind === "videoinput" ? (
+      <Symbol>camera_video</Symbol>
+    ) : props.kind === "audioinput" ? (
+      <Symbol>mic</Symbol>
+    ) : (
+      <Symbol>speaker</Symbol>
+    );
+
+  const title = () =>
+    props.kind === "videoinput" ? (
+      <Trans>Select video input</Trans>
+    ) : props.kind === "audioinput" ? (
+      <Trans>Select audio input</Trans>
+    ) : (
+      <Trans>Select audio output</Trans>
+    );
+
+  const activeId = createMemo(() => state.voice[setKey()] ?? "default");
+
+  const devOpts = createMemo(() => {
+    const opts: { [k in string]: CategorySelectOption } = {};
+    const devs = media()
+      .devices()
+      // Filter out the virtual sink
+      .filter((dev) => dev.label.split(":").pop() !== stoatSinkName);
+
+    //Ensure default is at top
+    let d = devs.find((d) => d.deviceId === "default");
+    opts.default = { title: d?.label ?? "Default" };
+
+    for (d of devs)
+      if (d.deviceId !== "default") opts[d.deviceId] = { title: d.label };
+    return opts;
+  });
+
+  return (
+    <CategoryButton.Select
+      icon={icon()}
+      title={title()}
+      value={activeId()}
+      options={devOpts()}
+      onUpdate={(id) => {
+        const mMedia = media();
+        if (
+          id === "default" ||
+          mMedia.devices().find((d) => d.deviceId === id)
+        ) {
+          //Can't setActiveMediaDevice to "default" for video, only audio
+          //But it can be applied on livekit init, so this choice will be remembered
+          if (props.kind !== "videoinput" || id !== "default")
+            mMedia.setActiveMediaDevice(id);
+          state.voice[setKey()] = id === "default" ? undefined : id;
+        }
+      }}
+    />
+  );
+}
+
+/**
+ * Select volume
+ */
+function VolumeSliders() {
+  const state = useState();
+
+  return (
+    <Column>
+      <Text class="label">
+        <Trans>Input Volume</Trans>
+      </Text>
+      <Slider
+        min={0}
+        max={3}
+        step={0.1}
+        value={state.voice.inputVolume}
+        onInput={(event) =>
+          (state.voice.inputVolume = event.currentTarget.value)
+        }
+        labelFormatter={(label) => (label * 100).toFixed(0) + "%"}
+      />
+      <Text class="label">
+        <Trans>Output Volume</Trans>
+      </Text>
+      <Slider
+        min={0}
+        max={3}
+        step={0.1}
+        value={state.voice.outputVolume}
+        onInput={(event) =>
+          (state.voice.outputVolume = event.currentTarget.value)
+        }
+        labelFormatter={(label) => (label * 100).toFixed(0) + "%"}
+      />
+    </Column>
+  );
+}

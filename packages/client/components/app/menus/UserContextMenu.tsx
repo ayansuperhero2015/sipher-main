@@ -1,0 +1,854 @@
+import { Trans } from "@lingui/solid/macro";
+import { useClient } from "@revolt/client";
+import { useModals } from "@revolt/modal";
+import { useSmartParams } from "@revolt/routing";
+import { useState } from "@revolt/state";
+import { Slider, Symbol, Text } from "@revolt/ui";
+import { useNavigate } from "@solidjs/router";
+import { type JSX, Match, Show, Switch } from "solid-js";
+import type { Channel, Message, ServerMember, User } from "stoat.js";
+import { styled } from "styled-system/jsx";
+
+import {
+  ContextMenu,
+  ContextMenuButton,
+  ContextMenuDivider,
+} from "./ContextMenu";
+import { NotificationContextMenu } from "./shared/NotificationContextMenu";
+
+/**
+ * Context menu for users
+ */
+export function UserContextMenu(props: {
+  user: User;
+  onClose?: () => void;
+  channel?: Channel;
+  member?: ServerMember;
+  contextMessage?: Message;
+  inVoice?: boolean;
+  isScreenshare?: boolean;
+}) {
+  // TODO: if we take serverId instead, we could dynamically fetch server member here
+  // same for the floating menu I guess?
+  const state = useState();
+  const client = useClient();
+  const navigate = useNavigate();
+  const { openModal, modals } = useModals();
+
+  // server context
+  const params = useSmartParams();
+
+  /**
+   * Open direct message channel
+   */
+  function openDm() {
+    props.user.openDM().then((channel) => navigate(channel.path));
+    props.onClose?.();
+  }
+
+  /**
+   * Delete channel
+   */
+  function closeDm() {
+    openModal({
+      type: "delete_channel",
+      channel: props.channel!,
+    });
+  }
+
+  /**
+   * Whether the user's profile modal is already open
+   */
+  function isProfileOpen() {
+    return !!modals.find(
+      (m) =>
+        m.props.type === "user_profile" &&
+        m.props.user.id === props.user.id &&
+        m.show,
+    );
+  }
+
+  /**
+   * Whether the member is in timeout
+   */
+  function isInTimeout(member: ServerMember): boolean {
+    return !!member.timeout && member.timeout.getTime() > Date.now();
+  }
+
+  /**
+   * Open user profile
+   */
+  function openProfile() {
+    openModal({
+      type: "user_profile",
+      user: props.user,
+    });
+  }
+
+  /**
+   * Mention the user
+   */
+  function mention() {
+    if (!state.draft._setNodeReplacement) return;
+    state.draft._setNodeReplacement([props.user.toString()]);
+  }
+
+  /**
+   * Edit server identity for user
+   */
+  function editIdentity() {
+    openModal({
+      type: "server_identity",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Report the user
+   */
+  function reportUser() {
+    openModal({
+      type: "report_content",
+      target: props.user!,
+      client: client(),
+      contextMessage: props.contextMessage,
+    });
+  }
+
+  /**
+   * Edit this user's roles
+   */
+  function editRoles() {
+    openModal({
+      type: "user_profile_roles",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Timeout the member
+   */
+  function timeoutMember() {
+    openModal({
+      type: "timeout_member",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Remove timeout from the member
+   */
+  function removeTimeout() {
+    openModal({
+      type: "remove_timeout",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Kick the member
+   */
+  function kickMember() {
+    openModal({
+      type: "kick_member",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Ban the member
+   */
+  function banMember() {
+    openModal({
+      type: "ban_member",
+      member: props.member!,
+    });
+  }
+
+  /**
+   * Ban the user
+   */
+  function banUser() {
+    openModal({
+      type: "ban_non_member",
+      user: props.user!,
+      server: client().servers.get(params().serverId!)!,
+    });
+  }
+
+  /**
+   * Add friend
+   */
+  function addFriend() {
+    props.user.addFriend();
+  }
+
+  /**
+   * Remove friend
+   */
+  function removeFriend() {
+    props.user.removeFriend();
+  }
+
+  /**
+   * Block user
+   */
+  function blockUser() {
+    props.user.blockUser();
+  }
+
+  /**
+   * Unblock user
+   */
+  function unblockUser() {
+    props.user.unblockUser();
+  }
+
+  /**
+   * Open user in Stoat Admin Panel
+   */
+  function openAdminPanel() {
+    window.open(
+      `https://admin.stoatinternal.com/panel/inspect/user/${props.user.id}`,
+      "_blank",
+    );
+  }
+
+  /**
+   * Copy user id to clipboard
+   */
+  function copyId() {
+    navigator.clipboard.writeText(props.user.id);
+  }
+
+  /**
+   * Remove user from group
+   */
+  function removeMember() {
+    openModal({
+      type: "remove_member",
+      user: props.user,
+      group: props.channel!,
+    });
+  }
+
+  /**
+   * Transfer group ownership
+   */
+  function transferGroup() {
+    openModal({
+      type: "transfer_ownership",
+      channel: props.channel!,
+      user: props.user,
+    });
+  }
+
+  /**
+   * Whether the user can edit identity on this server
+   */
+  function canEditIdentity() {
+    return (
+      props.member &&
+      (props.user.self
+        ? props.member!.server!.havePermission("ChangeNickname") ||
+          props.member!.server!.havePermission("ChangeAvatar")
+        : (props.member!.server!.havePermission("ManageNicknames") ||
+            props.member!.server!.havePermission("RemoveAvatars")) &&
+          props.member!.inferiorTo(props.member!.server!.member!))
+    );
+  }
+
+  /**
+   * Whether the user can edit roles for this member
+   */
+  function canEditRoles() {
+    return (
+      props.member &&
+      (props.member?.server?.owner?.self ||
+        (props.member?.server?.havePermission("AssignRoles") &&
+          props.member.inferiorTo(props.member.server.member!)))
+    );
+  }
+
+  /**
+   * Whether the user can timeout this member
+   */
+  function canTimeout() {
+    return (
+      !props.user.self &&
+      props.member?.server?.havePermission("TimeoutMembers") &&
+      props.member.inferiorTo(props.member.server.member!)
+    );
+  }
+
+  /**
+   * Whether the user can kick this member
+   */
+  function canKick() {
+    return (
+      !props.user.self &&
+      props.member?.server?.havePermission("KickMembers") &&
+      props.member.inferiorTo(props.member.server.member!)
+    );
+  }
+
+  /**
+   * Whether the user can ban this member
+   */
+  function canBan() {
+    return (
+      !props.user.self &&
+      props.member?.server?.havePermission("BanMembers") &&
+      props.member.inferiorTo(props.member.server.member!)
+    );
+  }
+
+  /**
+   * Whether the user can ban a non-member in the current server
+   */
+  function canBanNonMember() {
+    return (
+      !props.user.self &&
+      props.member?.server?.havePermission("BanMembers") &&
+      params().serverId &&
+      !props.member
+    );
+  }
+
+  /**
+   * Whether the user can remove a member from the current group
+   */
+  function canRemoveMemberFromGroup() {
+    return (
+      props.channel?.type === "Group" &&
+      !props.user.self &&
+      props.channel.owner?.id !== props.user.id &&
+      (props.channel.havePermission("ManageChannel") ||
+        props.channel.owner?.self)
+    );
+  }
+
+  /**
+   * Whether the user can transfer ownership of the current group
+   */
+  function canTransferGroup() {
+    return (
+      props.channel?.type === "Group" &&
+      props.channel.owner?.self &&
+      !props.user.self
+    );
+  }
+
+  return (
+    <ContextMenu class="UserContextMenu">
+      {/* Voice controls */}
+      <Show when={props.inVoice && !props.user.self && !props.isScreenshare}>
+        <ContextMenuButton
+          onpointerdown={(e) => e.stopImmediatePropagation()}
+          onClick={(e) => e.stopImmediatePropagation()}
+        >
+          <Text class="label">
+            <Trans>Volume</Trans>
+          </Text>
+          <Slider
+            min={0}
+            max={3}
+            step={0.1}
+            value={state.voice.getUserVolume(props.user.id)}
+            onInput={(event) =>
+              state.voice.setUserVolume(
+                props.user.id,
+                event.currentTarget.value,
+              )
+            }
+            labelFormatter={(label) => (label * 100).toFixed(0) + "%"}
+          />
+        </ContextMenuButton>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16} fill={state.voice.getUserMuted(props.user.id)}>
+                mic_off
+              </Symbol>
+            </IconSlot>
+          }
+          onClick={() =>
+            state.voice.setUserMuted(
+              props.user.id,
+              !state.voice.getUserMuted(props.user.id),
+            )
+          }
+          actionSymbol={
+            <IconSlot>
+              <Show
+                when={state.voice.getUserMuted(props.user.id)}
+                fallback={<Symbol size={16}>check_box_outline_blank</Symbol>}
+              >
+                <Symbol size={16}>check_box</Symbol>
+              </Show>
+            </IconSlot>
+          }
+        >
+          <Trans>Mute</Trans>
+        </ContextMenuButton>
+        <ContextMenuDivider />
+      </Show>
+      <Show when={props.isScreenshare && !props.user.self}>
+        <ContextMenuButton
+          onpointerdown={(e) => e.stopImmediatePropagation()}
+          onClick={(e) => e.stopImmediatePropagation()}
+        >
+          <Text class="label">
+            <Trans>Screen Share Volume</Trans>
+          </Text>
+          <Slider
+            min={0}
+            max={3}
+            step={0.1}
+            value={state.voice.getScreenShareVolume(props.user.id)}
+            onInput={(event) =>
+              state.voice.setScreenShareVolume(
+                props.user.id,
+                event.currentTarget.value,
+              )
+            }
+            labelFormatter={(label) => (label * 100).toFixed(0) + "%"}
+          />
+        </ContextMenuButton>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol
+                size={16}
+                fill={state.voice.getScreenShareMuted(props.user.id)}
+              >
+                mic_off
+              </Symbol>
+            </IconSlot>
+          }
+          onClick={() =>
+            state.voice.setScreenShareMuted(
+              props.user.id,
+              !state.voice.getScreenShareMuted(props.user.id),
+            )
+          }
+          actionSymbol={
+            <IconSlot>
+              <Show
+                when={state.voice.getScreenShareMuted(props.user.id)}
+                fallback={<Symbol size={16}>check_box_outline_blank</Symbol>}
+              >
+                <Symbol size={16}>check_box</Symbol>
+              </Show>
+            </IconSlot>
+          }
+        >
+          <Trans>Mute Screen Share</Trans>
+        </ContextMenuButton>
+
+        <ContextMenuDivider />
+      </Show>
+
+      {/* Quick actions: Profile, Message, Mention */}
+      <Show when={!isProfileOpen()}>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>account_circle</Symbol>
+            </IconSlot>
+          }
+          onClick={openProfile}
+        >
+          <Trans>Profile</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show when={props.user.relationship === "Friend" || props.user.bot}>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>chat</Symbol>
+            </IconSlot>
+          }
+          onClick={openDm}
+        >
+          <Trans>Message</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show when={props.channel?.type === "TextChannel"}>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>alternate_email</Symbol>
+            </IconSlot>
+          }
+          onClick={mention}
+        >
+          <Trans>Mention</Trans>
+        </ContextMenuButton>
+      </Show>
+
+      {/* DM-specific section */}
+      <Show when={props.channel?.type === "DirectMessage"}>
+        <ContextMenuDivider />
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>close</Symbol>
+            </IconSlot>
+          }
+          onClick={closeDm}
+          destructive
+        >
+          <Trans>Close chat</Trans>
+        </ContextMenuButton>
+        <NotificationContextMenu channel={props.channel!} />
+      </Show>
+
+      {/* Server identity and roles */}
+      <Show when={canEditIdentity() || canEditRoles()}>
+        <ContextMenuDivider />
+        <Show when={canEditIdentity()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>face</Symbol>
+              </IconSlot>
+            }
+            onClick={editIdentity}
+          >
+            <Switch fallback={<Trans>Edit identity</Trans>}>
+              <Match when={props.user.self}>
+                <Trans>Edit your identity</Trans>
+              </Match>
+            </Switch>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canEditRoles()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>assignment_ind</Symbol>
+              </IconSlot>
+            }
+            onClick={editRoles}
+          >
+            <Trans>Edit roles</Trans>
+          </ContextMenuButton>
+        </Show>
+      </Show>
+
+      {/* Social: friend requests */}
+      <Show
+        when={
+          !props.user.self &&
+          !props.user.bot &&
+          (props.user.relationship === "None" ||
+            props.user.relationship === "Incoming" ||
+            props.user.relationship === "Outgoing")
+        }
+      >
+        <ContextMenuDivider />
+        <Show when={props.user.relationship === "None"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_add_alt</Symbol>
+              </IconSlot>
+            }
+            onClick={addFriend}
+          >
+            <Trans>Add friend</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={props.user.relationship === "Incoming"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_add_alt</Symbol>
+              </IconSlot>
+            }
+            onClick={addFriend}
+          >
+            <Trans>Accept friend request</Trans>
+          </ContextMenuButton>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>cancel</Symbol>
+              </IconSlot>
+            }
+            onClick={removeFriend}
+            destructive
+          >
+            <Trans>Reject friend request</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={props.user.relationship === "Outgoing"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>cancel</Symbol>
+              </IconSlot>
+            }
+            onClick={removeFriend}
+            destructive
+          >
+            <Trans>Cancel friend request</Trans>
+          </ContextMenuButton>
+        </Show>
+      </Show>
+
+      {/* Moderation: kick, ban */}
+      {/** TODO: #287 timeout users */}
+      <Show
+        when={
+          canRemoveMemberFromGroup() ||
+          (props.member && (canTimeout() || canKick() || canBan()))
+        }
+      >
+        <ContextMenuDivider />
+        <Show when={canRemoveMemberFromGroup()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_remove</Symbol>
+              </IconSlot>
+            }
+            onClick={removeMember}
+            destructive
+          >
+            <Trans>Remove Member</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canTransferGroup()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_add_alt</Symbol>
+              </IconSlot>
+            }
+            onClick={transferGroup}
+            destructive
+          >
+            <Trans>Transfer Ownership</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canTimeout() && !isInTimeout(props.member!)}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>timer</Symbol>
+              </IconSlot>
+            }
+            onClick={timeoutMember}
+            destructive
+          >
+            <Trans>Timeout Member</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canTimeout() && isInTimeout(props.member!)}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>timer_off</Symbol>
+              </IconSlot>
+            }
+            onClick={removeTimeout}
+            destructive
+          >
+            <Trans>Remove Timeout</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canKick()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_remove</Symbol>
+              </IconSlot>
+            }
+            onClick={kickMember}
+            destructive
+          >
+            <Trans>Kick member</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={canBan()}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>do_not_disturb_on</Symbol>
+              </IconSlot>
+            }
+            onClick={banMember}
+            destructive
+          >
+            <Trans>Ban member</Trans>
+          </ContextMenuButton>
+        </Show>
+      </Show>
+      <Show when={canBanNonMember()}>
+        <ContextMenuDivider />
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>do_not_disturb_on</Symbol>
+            </IconSlot>
+          }
+          onClick={banUser}
+          destructive
+        >
+          <Trans>Ban user</Trans>
+        </ContextMenuButton>
+      </Show>
+
+      {/* Safety: remove friend, block, report */}
+      <Show when={!props.user.self}>
+        <ContextMenuDivider />
+        <Show when={props.user.relationship === "Friend"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>person_remove</Symbol>
+              </IconSlot>
+            }
+            onClick={removeFriend}
+            destructive
+          >
+            <Trans>Remove friend</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={props.user.relationship !== "Blocked"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>block</Symbol>
+              </IconSlot>
+            }
+            onClick={blockUser}
+            destructive
+          >
+            <Trans>Block user</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={props.user.relationship === "Blocked"}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>add_circle_outline</Symbol>
+              </IconSlot>
+            }
+            onClick={unblockUser}
+          >
+            <Trans>Unblock user</Trans>
+          </ContextMenuButton>
+        </Show>
+        <Show when={!props.user.privileged}>
+          <ContextMenuButton
+            symbol={
+              <IconSlot>
+                <Symbol size={16}>report</Symbol>
+              </IconSlot>
+            }
+            onClick={reportUser}
+            destructive
+          >
+            <Trans>Report user</Trans>
+          </ContextMenuButton>
+        </Show>
+      </Show>
+
+      {/* Developer tools */}
+      <Show
+        when={
+          state.settings.getValue("advanced:admin_panel") ||
+          state.settings.getValue("advanced:copy_id")
+        }
+      >
+        <ContextMenuDivider />
+      </Show>
+      <Show when={state.settings.getValue("advanced:admin_panel")}>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>admin_panel_settings</Symbol>
+            </IconSlot>
+          }
+          onClick={openAdminPanel}
+        >
+          <Trans>Admin Panel</Trans>
+        </ContextMenuButton>
+      </Show>
+      <Show when={state.settings.getValue("advanced:copy_id")}>
+        <ContextMenuButton
+          symbol={
+            <IconSlot>
+              <Symbol size={16}>badge</Symbol>
+            </IconSlot>
+          }
+          onClick={copyId}
+        >
+          <Trans>Copy user ID</Trans>
+        </ContextMenuButton>
+      </Show>
+    </ContextMenu>
+  );
+}
+
+/**
+ * Provide floating user menus on this element
+ * @param user User
+ * @param member Server Member
+ * @param contextMessage Message
+ * @param contextGroup Group
+ */
+export function floatingUserMenus(
+  user: User,
+  member?: ServerMember,
+  bot?: { owner: string },
+  contextMessage?: Message,
+  contextGroup?: Channel,
+): JSX.Directives["floating"] & object {
+  return {
+    userCard: {
+      user,
+      member,
+      bot,
+      // we could use message to display masquerade info in user card
+    },
+    /**
+     * Build user context menu
+     */
+    contextMenu() {
+      return (
+        <UserContextMenu
+          user={user}
+          member={member}
+          contextMessage={contextMessage}
+          channel={contextMessage?.channel ?? contextGroup}
+        />
+      );
+    },
+  };
+}
+
+export function floatingUserMenusFromMessage(message: Message) {
+  return message.author
+    ? floatingUserMenus(
+        message.author!,
+        message.member,
+        message.author!.bot,
+        message,
+      )
+    : {}; // TODO: webhook menu
+}
+
+const IconSlot = styled("div", {
+  base: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "16px",
+    height: "16px",
+    flexShrink: 0,
+  },
+});

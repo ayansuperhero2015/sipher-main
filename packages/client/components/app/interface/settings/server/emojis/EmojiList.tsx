@@ -1,0 +1,209 @@
+import { createFormControl, createFormGroup } from "solid-forms";
+import { For, Match, Switch } from "solid-js";
+
+import { Trans, useLingui } from "@lingui/solid/macro";
+import { Server } from "stoat.js";
+import { css } from "styled-system/css";
+
+import { useClient } from "@revolt/client";
+import { useError } from "@revolt/i18n";
+import { useInstance } from "@revolt/instance";
+import { useModals } from "@revolt/modal";
+import { cropProcess } from "@revolt/modal/modals/CropProcess";
+import {
+  Avatar,
+  Button,
+  CircularProgress,
+  Column,
+  Form2,
+  List,
+  Row,
+  Symbol,
+  Text,
+} from "@revolt/ui";
+
+/**
+ * Emoji list
+ */
+export function EmojiList(props: { server: Server }) {
+  const err = useError();
+  const { t } = useLingui();
+  const client = useClient();
+  const { openModal } = useModals();
+  const instance = useInstance();
+
+  function isDisabled() {
+    return props.server.emojis.length >= instance.globalLimits.server_emoji;
+  }
+
+  const editGroup = createFormGroup(
+    {
+      name: createFormControl("", { required: true }),
+      file: createFormControl<string | File[] | null>(null, {
+        required: true,
+      }),
+    },
+    {
+      disabled: isDisabled(),
+    },
+  );
+
+  async function onSubmit() {
+    const body = new FormData();
+    body.append("file", editGroup.controls.file.value![0]);
+
+    const [key, value] = client().authenticationHeader;
+    const data: { id: string } = await fetch(`${instance.mediaUrl}/emojis`, {
+      method: "POST",
+      body,
+      headers: {
+        [key]: value,
+      },
+    }).then((res) => res.json());
+
+    await props.server.createEmoji(data.id, {
+      name: editGroup.controls.name.value,
+    });
+  }
+
+  function onReset() {
+    editGroup.controls.name.setValue("");
+    editGroup.controls.file.setValue(null);
+  }
+
+  const submit = Form2.useSubmitHandler(editGroup, onSubmit, onReset);
+
+  return (
+    <Column gap="lg">
+      <form onSubmit={submit}>
+        <Column>
+          <Row align>
+            <Column>
+              <Form2.FileInput
+                control={editGroup.controls.file}
+                accept="image/*"
+                label={t`Emoji`}
+                imageJustify={false}
+                allowRemoval={false}
+                hideErrors={true}
+                maxSize={instance.limits().file_upload_size_limits["emojis"]}
+                process={cropProcess({
+                  ratio: 1,
+                  ratioLabel: t`Square`,
+                  openModal,
+                  dialogTitle: t`Crop Emoji`,
+                })}
+              />
+            </Column>
+            <Column grow>
+              <Form2.TextField
+                minlength={1}
+                maxlength={32}
+                counter
+                name="name"
+                control={editGroup.controls.name}
+                label={t`Emoji Name`}
+                pattern="[a-z0-9_]{1,32}"
+                helper={t`Lowercase letters, numbers and underscores only.`}
+                helper-on-focus={true}
+                autocomplete="off"
+              />
+
+              <Row align>
+                <Form2.Submit group={editGroup}>
+                  <Trans>Create</Trans>
+                </Form2.Submit>
+                <Switch
+                  fallback={
+                    <Trans>
+                      {instance.globalLimits.server_emoji -
+                        props.server.emojis.length}{" "}
+                      emoji slots remaining
+                    </Trans>
+                  }
+                >
+                  <Match when={editGroup.errors?.error}>
+                    {err(editGroup.errors!.error)}
+                  </Match>
+                  <Match when={editGroup.isPending}>
+                    <CircularProgress />
+                  </Match>
+                </Switch>
+              </Row>
+            </Column>
+          </Row>
+        </Column>
+      </form>
+
+      <List>
+        <For
+          each={props.server.emojis.toSorted((b, a) =>
+            a.id.localeCompare(b.id),
+          )}
+        >
+          {(emoji) => (
+            <List.Item
+              onClick={() => openModal({ type: "emoji_preview", emoji })}
+            >
+              <Row align>
+                <Column gap="none">
+                  <Row align>
+                    <Avatar src={emoji.url} size={32} shape="rounded-square" />
+                  </Row>
+                </Column>
+                <Column gap="none" grow>
+                  <span class={css({ flex: 1 })}>:{emoji.name}:</span>
+                  <span
+                    class={css({
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--gap-sm)",
+                    })}
+                  >
+                    <Avatar
+                      size={12}
+                      fallback={emoji.creator?.displayName}
+                      src={emoji.creator?.animatedAvatarURL}
+                    />
+                    <Text class="label">{emoji.creator?.displayName}</Text>
+                  </span>
+                </Column>
+                <Column gap="none">
+                  <Row>
+                    <Button
+                      size="icon"
+                      variant="text"
+                      use:floating={{
+                        tooltip: {
+                          placement: "bottom",
+                          content: t`Edit Emoji`,
+                        },
+                      }}
+                      onPress={() => openModal({ type: "edit_emoji", emoji })}
+                    >
+                      <Symbol>edit</Symbol>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="text"
+                      use:floating={{
+                        tooltip: {
+                          placement: "bottom",
+                          content: t`Delete Emoji`,
+                        },
+                      }}
+                      onPress={() => openModal({ type: "delete_emoji", emoji })}
+                    >
+                      <Symbol>delete</Symbol>
+                    </Button>
+                  </Row>
+                </Column>
+              </Row>
+            </List.Item>
+          )}
+        </For>
+      </List>
+    </Column>
+  );
+}
