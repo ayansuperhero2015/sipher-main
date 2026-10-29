@@ -26,7 +26,63 @@
   <script href="js/shim.js"></script>
   <!-- Classic scripts can't be modules inside SVG, so hand off with a dynamic import. -->
   <script><![CDATA[
-    import("./js/main.js").catch((err) => {
+    // jsDelivr tells browsers to keep @main files for 7 days, so after a push
+    // a browser can mix old and new files and break. On jsDelivr, load the app
+    // from the exact latest commit instead: those URLs never change, so every
+    // file always matches. Anywhere else (localhost, Firebase Hosting), or if
+    // GitHub can't be reached, the files load from next to this page.
+    const REPO = "ayansuperhero2015/sipher-main";
+    const SHA_KEY = "sipher.sha";
+    const SHA_TTL = 5 * 60 * 1000; // GitHub allows 60 lookups an hour per network
+
+    async function latestSha() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SHA_KEY) || "null");
+        if (saved && Date.now() - saved.at < SHA_TTL) return saved.sha;
+      } catch {}
+      const res = await fetch(`https://api.github.com/repos/${REPO}/commits/main`, {
+        cache: "no-store",
+        headers: { Accept: "application/vnd.github.sha" },
+      });
+      if (!res.ok) throw new Error(`GitHub ${res.status}`);
+      const sha = (await res.text()).trim();
+      if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error("bad commit id");
+      try {
+        localStorage.setItem(SHA_KEY, JSON.stringify({ sha, at: Date.now() }));
+      } catch {}
+      return sha;
+    }
+
+    async function appBase() {
+      if (location.hostname !== "cdn.jsdelivr.net") return "./";
+      try {
+        return `https://cdn.jsdelivr.net/gh/${REPO}@${await latestSha()}/sipher-chat/`;
+      } catch (err) {
+        console.warn("Sipher: loading unpinned files:", err);
+        return "./";
+      }
+    }
+
+    // Swap the (possibly cached) stylesheet for the pinned one.
+    function useStyles(base) {
+      if (base === "./") return;
+      const link = document.createElementNS("http://www.w3.org/1999/xhtml", "link");
+      link.rel = "stylesheet";
+      link.href = base + "css/styles.css";
+      link.onload = () => {
+        for (const node of document.childNodes) {
+          if (node.nodeType === Node.PROCESSING_INSTRUCTION_NODE && node.sheet) {
+            node.sheet.disabled = true;
+          }
+        }
+      };
+      document.getElementById("head").appendChild(link);
+    }
+
+    appBase().then((base) => {
+      useStyles(base);
+      return import(base + "js/main.js");
+    }).catch((err) => {
       console.error(err);
       const app = document.getElementById("app");
       app.textContent = "Failed to load Sipher: " + err.message;
