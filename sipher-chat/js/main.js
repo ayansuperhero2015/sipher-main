@@ -787,6 +787,10 @@ function openServer(serverId, channelId) {
     if (gone || state.serverId !== serverId) return;
     gone = true;
     const name = state.servers.find((s) => s.id === serverId)?.name;
+    if (!(await api.removedFromServer(state.user.uid, serverId))) {
+      if (name) toast(`Couldn't open ${name}. Try reloading.`);
+      return;
+    }
     await api.forgetServer(state.user.uid, serverId).catch(() => {});
     if (name) toast(`You no longer have access to ${name}.`);
   };
@@ -2468,6 +2472,11 @@ onAuthStateChanged(auth, async (user) => {
     if (first) consumeInviteFromUrl();
     first = false;
   });
+
+  api
+    .restoreMyServers(user.uid)
+    .then((n) => n && toast(`Restored ${n} server${n === 1 ? "" : "s"} to your list.`))
+    .catch((err) => console.warn("Couldn't check for missing servers", err));
 
   api
     .touchPresence(user.uid)
