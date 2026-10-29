@@ -448,6 +448,12 @@ service cloud.firestore {
 
     // ---- servers ----
 
+    // Finding your own memberships across every server (restoreMyServers in
+    // js/api.js). The query must filter on your uid, so it reveals nothing else.
+    match /{path=**}/members/{uid} {
+      allow list: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
     // The owner, or a member the owner made a moderator ("mod").
     function isMod(sid) {
       return isOwner(sid)

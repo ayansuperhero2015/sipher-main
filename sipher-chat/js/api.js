@@ -23,6 +23,7 @@
 // Typing and unread markers live in the Realtime Database (js/live.js).
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   deleteField,
   doc,
@@ -283,6 +284,47 @@ export async function leaveServer(uid, serverId) {
 // Removes a stale sidebar entry (e.g. after the server was deleted).
 export function forgetServer(uid, serverId) {
   return deleteDoc(doc(db, "users", uid, "servers", serverId));
+}
+
+// True only when it's certain you're out of the server: your pass is
+// approved, yet your membership (or the whole server) is gone. A refusal
+// while the pass isn't through yet, or a network hiccup, isn't enough.
+export async function removedFromServer(uid, serverId) {
+  try {
+    const pass = await getDoc(doc(db, "passes", uid));
+    if (pass.data()?.approved !== true) return false;
+    const member = await getDoc(doc(db, "servers", serverId, "members", uid));
+    return !member.exists();
+  } catch (err) {
+    return err?.code === "permission-denied";
+  }
+}
+
+// Puts back sidebar entries for servers you're still a member of. Older
+// versions of the app dropped them whenever opening a server was refused,
+// which happened to everyone when the access passes were introduced.
+// Resolves to how many were restored.
+export async function restoreMyServers(uid) {
+  const [memberships, listed] = await Promise.all([
+    getDocs(
+      query(collectionGroup(db, "members"), where("uid", "==", uid)),
+    ),
+    getDocs(collection(db, "users", uid, "servers")),
+  ]);
+  const have = new Set(listed.docs.map((d) => d.id));
+  let restored = 0;
+  for (const m of memberships.docs) {
+    const serverId = m.ref.parent.parent.id;
+    if (have.has(serverId)) continue;
+    const server = await getDoc(doc(db, "servers", serverId));
+    if (!server.exists()) continue;
+    await setDoc(doc(db, "users", uid, "servers", serverId), {
+      name: server.data().name,
+      joinedAt: m.data().joinedAt || serverTimestamp(),
+    });
+    restored++;
+  }
+  return restored;
 }
 
 export async function deleteServer(uid, serverId) {
