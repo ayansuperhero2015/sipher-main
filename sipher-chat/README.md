@@ -131,6 +131,13 @@ firebase deploy      # hosting + rules
 ## Notes
 
 - The Firebase web config in `js/firebase.js` is public by design; Firestore rules enforce access.
+  GitHub's secret scanning flags the `apiKey` anyway: close that alert as a false positive, and
+  lock the key down in Google Cloud Console (APIs & Services → Credentials) with HTTP-referrer
+  restrictions (`https://cdn.jsdelivr.net/gh/ayansuperhero2015/*`, `localhost`, and the
+  `sipher-e3cfb` Hosting domains).
+- On jsDelivr, `index.svg` looks up the latest commit on `main` and loads every other file from
+  that exact commit (`@<sha>`), because jsDelivr lets browsers cache `@main` files for 7 days
+  and a stale mix of old and new files breaks the app. Only `index.svg` itself is ever cached.
 - Server icons and avatars are resized to 128×128 in the browser and stored inline in
   Firestore, so no Firebase Storage bucket (or paid plan) is needed.
 - Deleting a server removes its channels, members and invite. Messages are left orphaned but
