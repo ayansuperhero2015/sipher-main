@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOORS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game"></div>
+<div id="fx-tint"></div>
+<div id="fx-vignette"></div>
+<div id="fx-damage"></div>
+<div id="fx-flash"></div>
+
+<div id="hide-overlay" class="hidden">
+  <img id="hide-eyes" alt="">
+  <div class="slats"></div>
+  <div class="hide-text">HIDING <span>[E] to leave</span></div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="msg"></div>
+  <div id="caption"></div>
+  <div id="topinfo"><div id="timer" class="hidden"></div></div>
+  <div id="room-label"></div>
+  <div id="status">
+    <div id="hp"><div id="hp-fill"></div></div>
+    <div id="gold"><span class="coin"></span><b id="gold-n">0</b></div>
+    <div id="extra" class="hidden"></div>
+  </div>
+  <div id="hotbar"></div>
+  <div id="hints" class="hidden"></div>
+  <div id="giggle-ui" class="hidden"><div class="gig-face"></div><span>CLICK TO SHAKE IT OFF</span><div class="gig-bar"><i></i></div></div>
+  <div id="progress" class="hidden"><i></i></div>
+</div>
+
+<canvas id="scribbles" class="hidden"></canvas>
+<div id="ransom" class="hidden"><div class="rs-box"><div class="rs-skull"></div><b>YOUR SCREEN HAS BEEN SEIZED</b><span id="rs-text"></span><small>Press <kbd>G</kbd> to pay · gold is in drawers, closets and on the floor</small></div></div>
+<div id="a90" class="hidden"><img alt=""></div>
+<img id="subliminal" alt="">
+<div id="jumpscare" class="hidden"><img alt=""></div>
+
+<div id="menu"></div>
+<div id="pause" class="hidden"></div>
+<div id="death" class="hidden"></div>
+<div id="win" class="hidden"></div>
+<div id="modal" class="hidden"><div id="modal-box"></div></div>
+<div id="heartbeat" class="hidden">
+  <div class="hb-title">HE'S NEAR. STAY CALM.</div>
+  <div class="hb-row"><div class="hb-key" data-k="0">LMB</div><div class="hb-heart"></div><div class="hb-key" data-k="2">RMB</div></div>
+  <div class="hb-meter"><i></i></div>
+</div>
+<div id="clicklock" class="hidden"><div>Click to continue</div></div>
+<div id="loading"><div class="ld-logo">DOORS</div><div class="ld-sub">Loading the Hotel…</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+window.THREE = THREE; window.GLTFLoader = GLTFLoader; window.SkeletonUtils = SkeletonUtils;
+const models = ['cobbler', 'closet', 'crucifix', 'key'].map(m => 'models/' + m + '.js');
+const files = ['js/core.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/entities.js', 'js/specials.js', 'js/floors.js', 'js/ui.js', 'js/subfloors.js', 'js/fear.js', 'js/post.js', 'js/dread.js', 'js/assets.js', ...models, 'js/main.js'];
+const BUILD = '2026-10-31e'; // bump when scripts change so browsers never run stale copies
+for (const f of files) {
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = f + '?v=' + BUILD; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + f));
+    document.body.appendChild(s);
+  });
+}
+document.querySelector('.ld-sub').textContent = 'Waking the entities…';
+await G.assets.loadAll();
+G.boot();
+</script>
+</body>
+</html>

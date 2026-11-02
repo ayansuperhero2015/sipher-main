@@ -2704,6 +2704,52 @@ button.message-avatar {
   line-height: 1.25;
 }
 
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.game-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--bg-chip);
+  text-align: left;
+  transition: transform 0.15s;
+}
+
+.game-card:hover {
+  transform: translateY(-2px);
+  background: var(--bg-hover);
+}
+
+.game-art {
+  height: 110px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #2a1c10, #000);
+  color: #efe0bc;
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.game-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.game-blurb {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .games-soon {
   display: flex;
   flex-direction: column;
