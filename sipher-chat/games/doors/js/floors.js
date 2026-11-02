@@ -10,7 +10,7 @@ G.screechTick = (game, dt, rate) => {
   if (game.screech || P.hiding || !cur || !cur.dark || game.seek || cur.chase) { game.screechT = 0; return; }
   if (cur.lamps.some(L => L.on && !L.broken && !L.unbreakable)) return;
   game.screechT += dt;
-  if (game.screechT > 4 && Math.random() < dt * rate * (game.lightOn ? 0.35 : 1)) {
+  if (game.screechT > 4 && G.random() < dt * rate * (game.lightOn ? 0.35 : 1)) {
     game.screechT = 0;
     game.screech = game.spawn(new E.Screech());
   }

@@ -7,6 +7,7 @@ const path = require("path");
 const PORT = 5500;
 const types = {
   ".svg": "image/svg+xml",
+  ".html": "text/html",
   ".js": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",

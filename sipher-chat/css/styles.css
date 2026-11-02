@@ -2717,13 +2717,39 @@ button.message-avatar {
   overflow: hidden;
   border-radius: var(--radius);
   background: var(--bg-chip);
-  text-align: left;
-  transition: transform 0.15s;
 }
 
-.game-card:hover {
-  transform: translateY(-2px);
-  background: var(--bg-hover);
+.game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.party-invite {
+  display: flex;
+  max-width: 420px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--bg-chip);
+}
+
+.party-invite-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.game-art.small {
+  width: 96px;
+  height: auto;
+  min-height: 72px;
+  flex-shrink: 0;
+  font-size: 15px;
+  letter-spacing: 0.15em;
 }
 
 .game-art {

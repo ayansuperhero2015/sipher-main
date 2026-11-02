@@ -79,7 +79,7 @@ G.THEMES = {
       const mat = new THREE.PointsMaterial({ color: 0xfff08a, size: 0.07, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
       room.mats.push(mat);
       const pts = new THREE.Points(geo, mat); room.group.add(pts);
-      let t = Math.random() * 10;
+      let t = G.random() * 10;
       room.updaters.push(dt => { t += dt; pts.position.y = Math.sin(t * 0.7) * 0.2; pts.position.x = Math.sin(t * 0.3) * 0.3; mat.opacity = 0.6 + Math.sin(t * 3) * 0.3; });
     },
   }),
@@ -241,7 +241,7 @@ SP.chase = (game, at, n, th, i, total) => {
       r.mesh(GEO.box, M.black, 0, hgt / 2, 0, g, 0.16, hgt, 0.16);
       for (let f = 0; f < 4; f++) r.mesh(GEO.box, M.black, (f - 1.5) * 0.06, hgt + 0.12, 0, g, 0.03, 0.22, 0.03);
       g.rotation.z = -s * G.rand(0.2, 0.6);
-      hands.push({ g, ph: Math.random() * 7, base: g.rotation.z });
+      hands.push({ g, ph: G.random() * 7, base: g.rotation.z });
     }
     let fire = null;
     r.updaters.push(dt => {
@@ -446,7 +446,7 @@ SP.dam = (game, at, n) => {
     const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16), new THREE.MeshStandardMaterial({ color: 0xaa2020, metalness: 0.6, roughness: 0.4 }));
     wheel.position.set(0, 1.3, 0.52); g.add(wheel); r.mats.push(wheel.material); r.geos.push(wheel.geometry);
     const it = r.addInter(g.localToWorld(new V3(0, 1.3, 0.8)), () => (it.done || game.channel ? null : 'Turn valve'), () => {
-      game.startChannel(2.4, g.localToWorld(new V3(0, 0, 0.9)), dt => { wheel.rotation.z += dt * 4; if (Math.random() < dt * 3) G.audio.sfx('valve'); }, () => {
+      game.startChannel(2.4, g.localToWorld(new V3(0, 0, 0.9)), dt => { wheel.rotation.z += dt * 4; if (G.random() < dt * 3) G.audio.sfx('valve'); }, () => {
         it.done = true; turned++; G.audio.sfx('lever'); G.ui.msg(`Valve ${turned}/3`, 1.5);
         if (turned === 1 && !seeked) {
           seeked = true;

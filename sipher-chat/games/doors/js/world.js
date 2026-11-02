@@ -308,8 +308,8 @@ G.updateLights = game => {
       let f = 0;
       if (L.on && !L.broken) {
         f = 1;
-        if (fl) f = Math.random() < 0.45 ? 0.05 : Math.random();
-        else if (L.buzz) f = Math.random() < 0.03 ? 0.2 : 0.9 + Math.random() * 0.1;
+        if (fl) f = G.random() < 0.45 ? 0.05 : G.random();
+        else if (L.buzz) f = G.random() < 0.03 ? 0.2 : 0.9 + G.random() * 0.1;
       }
       L.f = f;
       L.mat.color.copy(L.color).multiplyScalar(f > 0 ? 0.35 + f * 0.75 : 0.04);

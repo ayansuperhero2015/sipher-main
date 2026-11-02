@@ -282,7 +282,7 @@ const Game = G.game = {
     const lim = this.hideLimit;
     if (P.hideT > lim * 0.6) {
       if (!this.hideLoop) { this.hideLoop = G.audio.loop('hide'); this.hideLoop.set(0.6); G.ui.caption('Get out...', 2); }
-      if (P.hideT > lim * 0.8 && Math.random() < dt) G.ui.caption('GET OUT', 1);
+      if (P.hideT > lim * 0.8 && G.random() < dt) G.ui.caption('GET OUT', 1);
     }
     if (P.hideT > lim) {
       this.unhide(); P.hideT = 0;
@@ -309,7 +309,7 @@ const Game = G.game = {
     const it = this.light;
     if (!it) return;
     it.charge -= it.drain * dt;
-    if (it.light === 'lighter') G.handLight.intensity = 5 * (0.85 + Math.random() * 0.15);
+    if (it.light === 'lighter') G.handLight.intensity = 5 * (0.85 + G.random() * 0.15);
     if (it.charge <= 0) { it.charge = 0; this.setLight(null); G.ui.caption(it.light === 'flash' ? 'The battery died.' : 'The lighter ran out of fuel.', 2); }
     this._hbT = (this._hbT || 0) + dt;
     if (this._hbT > 0.5) { this._hbT = 0; G.ui.hotbar(this.inv); }
@@ -337,7 +337,7 @@ const Game = G.game = {
   addGold(n) { this.gold += n; G.audio.sfx('gold'); G.ui.gold(this.gold); G.ui.caption(`+${n} Gold`, 1.2); },
   lootDrawer(room, dr) {
     if (dr.key) { this.inv.add('key'); G.ui.msg('You found a Key!', 2); return; }
-    const r = Math.random();
+    const r = G.random();
     if (r < 0.03) { this.scare('timothy', 5); return; }
     if (r < 0.45) { this.addGold(G.randi(3, 15)); return; }
     const table = [['battery', 0.08], ['bandage', 0.06], ['lighter', 0.03], ['lockpick', 0.035], ['vitamins', 0.035], ['flashlight', 0.015], ['crucifix', 0.006]];
@@ -519,7 +519,7 @@ G.boot = () => {
       const m = Game.menuCam;
       G.camera.position.copy(m.base).add(new V3(Math.sin(t * 0.2) * 0.4, Math.sin(t * 0.37) * 0.08, 0));
       G.camera.lookAt(m.look);
-      for (const r of Game.rooms) { r.update(dt); if (Math.random() < 0.004) r.flicker = 0.3; }
+      for (const r of Game.rooms) { r.update(dt); if (G.random() < 0.004) r.flicker = 0.3; }
     }
     G.camera.updateMatrixWorld();
     projM.multiplyMatrices(G.camera.projectionMatrix, G.camera.matrixWorldInverse);

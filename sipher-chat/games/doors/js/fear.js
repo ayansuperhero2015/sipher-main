@@ -15,7 +15,7 @@ function radial(x, cx, cy, r, stops) {
 }
 function smokeBall(x, S, core, edge, n = 140, spread = 0.38) {
   for (let i = 0; i < n; i++) {
-    const a = Math.random() * TAU, r = Math.pow(Math.random(), 0.7) * S * spread;
+    const a = G.random() * TAU, r = Math.pow(G.random(), 0.7) * S * spread;
     const px = S / 2 + Math.cos(a) * r, py = S / 2 + Math.sin(a) * r * 1.05, rr = R(S * 0.05, S * 0.17);
     x.fillStyle = radial(x, px, py, rr, [[0, i % 3 ? core : edge], [1, 'rgba(0,0,0,0)']]);
     x.fillRect(px - rr, py - rr, rr * 2, rr * 2);
@@ -24,7 +24,7 @@ function smokeBall(x, S, core, edge, n = 140, spread = 0.38) {
 function tendrils(x, S, col, n = 26, len = 0.5) {
   x.lineCap = 'round';
   for (let i = 0; i < n; i++) {
-    const a = Math.random() * TAU;
+    const a = G.random() * TAU;
     let px = S / 2 + Math.cos(a) * S * 0.28, py = S / 2 + Math.sin(a) * S * 0.28;
     x.strokeStyle = col; x.lineWidth = R(2, 7);
     x.beginPath(); x.moveTo(px, py);
@@ -35,7 +35,7 @@ function tendrils(x, S, col, n = 26, len = 0.5) {
 }
 function veins(x, cx, cy, r, n = 16) {
   for (let i = 0; i < n; i++) {
-    const a = Math.random() * TAU;
+    const a = G.random() * TAU;
     let px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r * 0.65;
     x.strokeStyle = `rgba(${R(140, 200) | 0},10,10,${R(0.4, 0.8)})`; x.lineWidth = R(0.8, 2.2);
     x.beginPath(); x.moveTo(px, py);
@@ -177,7 +177,7 @@ Object.assign(F, {
   halt(x, S) {
     x.fillStyle = radial(x, S / 2, S / 2, S * 0.48, [[0, 'rgba(150,230,255,0.85)'], [0.5, 'rgba(40,140,220,0.5)'], [1, 'rgba(0,30,90,0)']]);
     x.fillRect(0, 0, S, S);
-    for (let i = 0; i < S; i += 6) { x.fillStyle = `rgba(200,240,255,${Math.random() * 0.12})`; x.fillRect(0, i, S, 2); }
+    for (let i = 0; i < S; i += 6) { x.fillStyle = `rgba(200,240,255,${G.random() * 0.12})`; x.fillRect(0, i, S, 2); }
     voidEye(x, S * 0.38, S * 0.4, S * 0.07, S * 0.1, '#bff');
     voidEye(x, S * 0.62, S * 0.4, S * 0.07, S * 0.1, '#bff');
     drips(x, S, 'rgba(0,30,60,0.8)', 6, 0.45);
@@ -336,7 +336,7 @@ G.horrify = (x, S, name) => {
   x.restore();
   // grain + scratches, only where there is paint
   const id = x.getImageData(0, 0, S, S), d = id.data;
-  for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; const n = (Math.random() - 0.5) * 34; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; const n = (G.random() - 0.5) * 34; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
   x.putImageData(id, 0, 0);
   x.save(); x.globalCompositeOperation = 'source-atop'; x.strokeStyle = 'rgba(255,255,255,0.06)';
   for (let i = 0; i < 6; i++) { const px = R(0, S); x.lineWidth = R(0.5, 1.5); x.beginPath(); x.moveTo(px, 0); x.lineTo(px + R(-20, 20), S); x.stroke(); }
@@ -434,10 +434,10 @@ RP.update = function (dt) {
     for (let i = 0; i < 10; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex(), transparent: true, depthWrite: false, fog: false, opacity: 0 })); G.scene.add(s); this.trail.push({ s, p: null }); }
   }
   if (this.pos && this.sprite.visible) {
-    const base = this.C.size, k = 1 + Math.sin(this._ft * 34) * 0.07 + Math.random() * 0.08;
+    const base = this.C.size, k = 1 + Math.sin(this._ft * 34) * 0.07 + G.random() * 0.08;
     this.sprite.scale.set(base * k, base * k * R(0.95, 1.08), 1);
     this.sprite.material.rotation = R(-0.06, 0.06);
-    this.sprite.material.map = Math.random() < 0.18 ? G.glitchTex(this.C.face) : G.faceTex(this.C.face);
+    this.sprite.material.map = G.random() < 0.18 ? G.glitchTex(this.C.face) : G.faceTex(this.C.face);
     this._tt = (this._tt || 0) + dt;
     if (this._tt > 0.03) {
       this._tt = 0;
@@ -454,7 +454,7 @@ SC.update = function (dt) {
   const k = Math.min(1, this.t / 0.25);
   this.sprite.scale.setScalar(G.lerp(0.2, 1.05, k) * (1 + Math.sin(this.t * 40) * 0.04));
   this.sprite.material.rotation = Math.sin(this.t * 23) * 0.08;
-  if (this.t > 2.2 && Math.random() < 0.3) this.sprite.material.map = G.glitchTex('screech'); else this.sprite.material.map = G.faceTex('screech');
+  if (this.t > 2.2 && G.random() < 0.3) this.sprite.material.map = G.glitchTex('screech'); else this.sprite.material.map = G.faceTex('screech');
   return scUpdate.call(this, dt);
 };
 
@@ -463,7 +463,7 @@ GZ.update = function (dt) {
   const r = gzUpdate.call(this, dt);
   const base = this.kind === 'eyes' ? 1.9 : 1.4;
   this.sprite.scale.setScalar(base * (1 + Math.sin(this.t * 2.3) * 0.06));
-  this.sprite.material.map = Math.random() < 0.04 ? G.glitchTex(this.kind) : G.faceTex(this.kind);
+  this.sprite.material.map = G.random() < 0.04 ? G.glitchTex(this.kind) : G.faceTex(this.kind);
   if (this.warned && !this._stung) { this._stung = true; A.sfx('sting'); }
   return r;
 };
@@ -473,10 +473,10 @@ FG.update = function (dt) {
   const r = fgUpdate.call(this, dt);
   const h = this.m.userData.head;
   this._tw = (this._tw || 0) - dt;
-  if (this._tw <= 0 && Math.random() < dt * 1.5) { this._tw = 0.12; this._twA = R(-0.7, 0.7); }
+  if (this._tw <= 0 && G.random() < dt * 1.5) { this._tw = 0.12; this._twA = R(-0.7, 0.7); }
   if (this._tw > 0) { h.rotation.z = this._twA; h.rotation.x = R(-0.2, 0.2); }
   const d = G.distXZ(this.pos, G.player.pos);
-  if (d < 6 && Math.random() < dt * 0.4) A.sfx('groan');
+  if (d < 6 && G.random() < dt * 0.4) A.sfx('groan');
   return r;
 };
 const SK = E.Seek.prototype, skUpdate = SK.update;
@@ -539,12 +539,12 @@ fear.update = (dt, g) => {
   const fov = G.save.settings.fov - 9 * L + Math.sin(fear.t * (3 + L * 6)) * L * 0.8;
   if (Math.abs(G.camera.fov - fov) > 0.05) { G.camera.fov = fov; G.camera.updateProjectionMatrix(); }
   if (L > 0.55) P.shake = Math.max(P.shake, (L - 0.55) * 0.25);
-  if (P.hiding && L > 0.4 && Math.random() < dt * 0.25) A.sfx('breath');
+  if (P.hiding && L > 0.4 && G.random() < dt * 0.25) A.sfx('breath');
   // Seek's wall eyes
   const cur = g.cur;
   for (const room of g.rooms) if (room.eyeMeshes && Math.abs(room.index - (cur ? cur.index : 0)) <= 1) {
     for (const e of room.eyeMeshes) {
-      if (e.blink > 0) e.blink -= dt; else if (Math.random() < dt * 0.25) e.blink = 0.15;
+      if (e.blink > 0) e.blink -= dt; else if (G.random() < dt * 0.25) e.blink = 0.15;
       const near = G.clamp(1 - e.m.getWorldPosition(new V3()).distanceTo(cam) / 6, 0, 1);
       e.m.scale.set(e.sx * (1 + near * 0.35), e.blink > 0 ? e.sy * 0.08 : e.sy * (1 + near * 0.35), 1);
     }
@@ -555,7 +555,7 @@ fear.update = (dt, g) => {
     sh.t += dt;
     const seen = G.lookingAt(sh.s.position, 0.93) && G.los(cam, sh.s.position, g.cols);
     if (seen || sh.t > 4.5 || !cur || cur !== sh.room) {
-      if (seen) { A.sfx('whoosh'); if (Math.random() < 0.5) A.sfx('whisper'); }
+      if (seen) { A.sfx('whoosh'); if (G.random() < 0.5) A.sfx('whisper'); }
       G.scene.remove(sh.s); fear.shadow = null;
     }
   }
@@ -569,7 +569,7 @@ function ambient(g, cur) {
   const ev = G.weighted({ knock: 2, whisper: 2, footsteps: 2, groan: 1.5, bulb: 1.5, shadow: 2.2, flicker: 2, subliminal: 1 });
   const P = G.player;
   if (ev === 'knock') A.sfx('knock');
-  else if (ev === 'whisper') { A.sfx('whisper'); if (Math.random() < 0.4) U.caption('...', 1.5); }
+  else if (ev === 'whisper') { A.sfx('whisper'); if (G.random() < 0.4) U.caption('...', 1.5); }
   else if (ev === 'footsteps') { A.sfx('footsteps'); }
   else if (ev === 'groan') A.sfx('groan');
   else if (ev === 'bulb') {

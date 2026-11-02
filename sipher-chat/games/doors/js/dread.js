@@ -28,7 +28,7 @@ RP.update = function (dt) {
       this.sprite.position.copy(this._peekAt).add(new V3(R(-0.04, 0.04), R(-0.04, 0.04), 0));
       const k = 0.8 + Math.sin(this._peekT * 40) * 0.04;
       this.sprite.scale.set(this.C.size * k, this.C.size * k, 1);
-      this.sprite.material.map = Math.random() < 0.4 ? G.glitchTex(this.C.face) : G.faceTex(this.C.face);
+      this.sprite.material.map = G.random() < 0.4 ? G.glitchTex(this.C.face) : G.faceTex(this.C.face);
       this.snd.set(1.3);
       P.shake = Math.max(P.shake, 0.8);
       G.post.kick(0.5, 0.5);
@@ -110,8 +110,8 @@ D.update = (dt, g) => {
   if (!eyes.getAttribute('src')) eyes.src = G.faceURL('hide');
   if (P.hiding) {
     const k = G.clamp((P.hideT / g.hideLimit - 0.55) / 0.4, 0, 1);
-    eyes.style.opacity = (k * (0.75 + Math.random() * 0.25)).toFixed(2);
-    if (k > 0.3 && Math.random() < dt * 0.6) A.sfxAt('whisper', cam.position.clone().add(new V3(0, 0, 0.4).applyQuaternion(cam.quaternion)));
+    eyes.style.opacity = (k * (0.75 + G.random() * 0.25)).toFixed(2);
+    if (k > 0.3 && G.random() < dt * 0.6) A.sfxAt('whisper', cam.position.clone().add(new V3(0, 0, 0.4).applyQuaternion(cam.quaternion)));
   } else eyes.style.opacity = 0;
   // false alarm: the lights flicker... and nothing comes
   if (RUSH_FLOORS.has(g.floor.id) && quiet(g) && !cur.dark) {

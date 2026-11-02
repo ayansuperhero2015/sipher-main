@@ -3,6 +3,7 @@ import { append, avatar, clear, h, icon, toast } from "../dom.js";
 import { createEmojiPicker, replaceShortcodes, searchEmoji } from "../emoji.js";
 import { embedFor } from "../embeds.js";
 import { censor } from "../filter.js";
+import { partyCard, partyIn } from "./games.js";
 import { createGifPicker } from "./gifpicker.js";
 import { openModal } from "./modal.js";
 import { parsePollCommand, pollCard } from "./polls.js";
@@ -1098,8 +1099,11 @@ export function createChat(el, actions) {
     const openProfile = () => actions.openProfile(msg.authorId, name);
 
     let content;
+    const invite = !msg.forwarded && partyIn(msg.text);
     if (msg.id === editingId) {
       content = editor(msg);
+    } else if (invite) {
+      content = partyCard({ ...invite, text: censor(invite.text, filterRe) }, actions.joinParty);
     } else if (msg.poll) {
       content = pollCard(
         { ...msg, poll: { ...msg.poll, question: censor(msg.poll.question, filterRe) } },

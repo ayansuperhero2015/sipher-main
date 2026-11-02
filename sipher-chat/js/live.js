@@ -5,12 +5,15 @@
 //   typing/{convoKey}/{uid}       { name, at } while someone is typing
 //   activity/{serverId}/{cid}     { at, by, everyoneAt? } latest channel message
 //   pings/{uid}/{serverId}_{cid}  { at, by, name, channel } last @mention of uid
+//   parties/{id}/meta             { host, game, createdAt, floor, seed, run }
+//   parties/{id}/players/{uid}    each player's live state (games/*/js/party.js)
 //
 // None of this is permanent; it's small and changes often, which is what the
 // Realtime Database is cheap at (Firestore would charge a read per update).
 import {
   onDisconnect,
   onValue,
+  push,
   ref,
   remove,
   serverTimestamp,
@@ -121,6 +124,20 @@ export function watchActivity(serverId, cb) {
     (snap) => cb(snap.val() || {}),
     (err) => console.warn("Couldn't load channel activity", err),
   );
+}
+
+// ---- game parties ----
+
+// Makes a party led by uid; resolves to its id. The game itself handles
+// joining and playing (see games/doors/js/party.js).
+export async function createParty(uid, game) {
+  const party = push(ref(rtdb, "parties"));
+  await set(ref(rtdb, `parties/${party.key}/meta`), {
+    host: uid,
+    game,
+    createdAt: serverTimestamp(),
+  });
+  return party.key;
 }
 
 // Calls cb({ "serverId_channelId": { at, by, name, channel } }).

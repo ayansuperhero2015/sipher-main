@@ -23,6 +23,43 @@
         }
       }
     },
+    "parties": {
+      "$partyId": {
+        ".read": "auth != null",
+        "meta": {
+          ".write": "auth != null && (!data.exists() || data.child('host').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['host', 'game', 'createdAt']) && newData.child('host').val() === auth.uid",
+          "host": { ".validate": "newData.isString()" },
+          "game": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "floor": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "seed": { ".validate": "newData.isNumber()" },
+          "run": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'at', 'state']) && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('at').val() === now)"
+          }
+        },
+        "looks": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            "$field": { ".validate": "newData.isString() && newData.val().length <= 16" }
+          }
+        },
+        "events": {
+          "$run": {
+            ".write": "!newData.exists() && auth != null && root.child('parties').child($partyId).child('meta/host').val() === auth.uid",
+            "$event": {
+              ".write": "auth != null && !data.exists()",
+              ".validate": "newData.hasChildren(['t', 'r', 'i', 'by', 'at']) && newData.child('by').val() === auth.uid && newData.child('at').val() === now && (newData.child('t').val() === 'door' || newData.child('t').val() === 'use') && newData.child('r').isNumber() && newData.child('i').isNumber()"
+            }
+          }
+        }
+      }
+    },
     "pings": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

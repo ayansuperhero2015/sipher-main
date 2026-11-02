@@ -18,7 +18,7 @@ import { appearanceModal } from "./ui/appearance.js";
 import { pendingSignup, renderAuth } from "./ui/auth.js";
 import { createChat } from "./ui/chat.js";
 import { addFriendModal, usernameModal } from "./ui/friends.js";
-import { gamesModal } from "./ui/games.js";
+import { gamesModal, launchGame, partyInvite } from "./ui/games.js";
 import { isOnline, renderMembers } from "./ui/members.js";
 import { confirmModal, openModal, promptModal } from "./ui/modal.js";
 import { reportModal, reportsModal, rulesModal } from "./ui/moderation.js";
@@ -1007,7 +1007,18 @@ const chatActions = {
   },
   typing: (on) => setTyping(on),
   createPoll: () => pollModal(),
-  openGames: () => gamesModal(),
+  // "Play with friends" makes a party and posts its invite here.
+  openGames: () =>
+    gamesModal({
+      startParty: async (gameId) => {
+        const name = state.profile.displayName;
+        const id = await live.createParty(state.user.uid, gameId);
+        await chatActions.send(partyInvite(name, gameId, id)).catch(() => {});
+        return { id, name };
+      },
+    }),
+  joinParty: (invite) =>
+    launchGame(invite.game, async () => ({ id: invite.id, name: state.profile.displayName })),
   vote: guarded((msg, index) =>
     api.setVote(convo(), msg.id, state.user.uid, index),
   ),

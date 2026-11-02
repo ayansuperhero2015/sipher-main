@@ -335,7 +335,7 @@ E.Giggle = Giggle;
 class Gloombats {
   constructor(room) {
     this.room = room; this.level = 0; this.bats = []; this.dmgT = 0.5; this.warned = false;
-    for (let i = 0; i < 8; i++) { const s = G.faceSprite('gloombat', 0.5); s.visible = false; G.scene.add(s); this.bats.push({ s, a: Math.random() * 7, r: G.rand(0.6, 1.4), h: G.rand(-0.3, 0.6), sp: G.rand(3, 6) }); }
+    for (let i = 0; i < 8; i++) { const s = G.faceSprite('gloombat', 0.5); s.visible = false; G.scene.add(s); this.bats.push({ s, a: G.random() * 7, r: G.rand(0.6, 1.4), h: G.rand(-0.3, 0.6), sp: G.rand(3, 6) }); }
     this.snd = G.audio.loop('gloom');
   }
   update(dt) {

@@ -270,3 +270,18 @@ body:not(.playing) #hud { display: none; }
   #msg.title { font-size: 40px; }
   .settings label { grid-template-columns: 1fr; }
 }
+
+/* ---------- avatar tab ---------- */
+.av-wrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.av-stage { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: radial-gradient(ellipse at 50% 30%, rgba(216,180,106,0.12), rgba(0,0,0,0.4)); }
+.av-stage canvas { width: 260px; height: 340px; }
+.av-emotes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.av-opts { flex: 1; min-width: 260px; display: grid; gap: 6px; text-align: left; }
+.av-opts label { margin-top: 8px; color: var(--dim); font: 500 13px 'Oswald', sans-serif; letter-spacing: 0.15em; text-transform: uppercase; }
+.av-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.av-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); cursor: pointer; }
+.av-sw.on { border-color: var(--gold-2); box-shadow: 0 0 0 2px rgba(216,180,106,0.4); }
+.av-chip { appearance: none; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.35); color: var(--ink); font: 500 14px 'Oswald', sans-serif; letter-spacing: 0.06em; cursor: pointer; }
+.av-chip:hover { border-color: var(--gold); }
+.av-chip.on { border-color: var(--gold); background: rgba(216,180,106,0.22); color: var(--gold-2); }
+.av-tip { color: var(--dim); font-size: 14px; margin-top: 10px; }

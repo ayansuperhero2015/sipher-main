@@ -5,17 +5,21 @@ const G = window.G = {};
 const V3 = THREE.Vector3;
 G.V3 = V3;
 
-G.rand = (a, b) => a + Math.random() * (b - a);
-G.randi = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
-G.pick = a => a[Math.floor(Math.random() * a.length)];
-G.chance = p => Math.random() < p;
+// All gameplay randomness goes through G.random, so party mode can seed it
+// (js/party.js) without touching Math.random, which Three.js also uses.
+G.random = Math.random;
+
+G.rand = (a, b) => a + G.random() * (b - a);
+G.randi = (a, b) => Math.floor(a + G.random() * (b - a + 1));
+G.pick = a => a[Math.floor(G.random() * a.length)];
+G.chance = p => G.random() < p;
 G.clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 G.lerp = (a, b, t) => a + (b - a) * t;
 G.pad = (n, l = 4) => (n < 0 ? '-' : '') + String(Math.abs(n)).padStart(l, '0');
-G.shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+G.shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(G.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 G.weighted = obj => {
   let tot = 0; for (const k in obj) tot += obj[k];
-  let r = Math.random() * tot;
+  let r = G.random() * tot;
   for (const k in obj) { r -= obj[k]; if (r <= 0) return k; }
   return Object.keys(obj)[0];
 };

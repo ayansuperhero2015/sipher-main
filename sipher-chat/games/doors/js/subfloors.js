@@ -45,7 +45,7 @@ Object.assign(G.FACES, {
   scribbles(x, S) {
     x.fillStyle = '#ece8dc'; x.fillRect(0, 0, S, S);
     x.strokeStyle = '#111'; x.lineWidth = 3;
-    for (let i = 0; i < 26; i++) { let px = Math.random() * S, py = Math.random() * S; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 14; k++) { px += G.rand(-40, 40); py += G.rand(-40, 40); x.lineTo(px, py); } x.stroke(); }
+    for (let i = 0; i < 26; i++) { let px = G.random() * S, py = G.random() * S; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 14; k++) { px += G.rand(-40, 40); py += G.rand(-40, 40); x.lineTo(px, py); } x.stroke(); }
     x.fillStyle = '#000'; K.eyesPair(x, S / 2, S * 0.42, S * 0.15, S * 0.08, S * 0.1, '#000', '#ece8dc', 6);
     K.grin(x, S / 2, S * 0.66, S * 0.5, S * 0.16, '#000', 0);
   },
@@ -78,7 +78,7 @@ Object.assign(G.FACES, {
   },
   noise(x, S) {
     const id = x.createImageData(S, S);
-    for (let i = 0; i < id.data.length; i += 4) { const v = Math.random() * 200; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
+    for (let i = 0; i < id.data.length; i += 4) { const v = G.random() * 200; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255; }
     x.putImageData(id, 0, 0);
     x.fillStyle = 'rgba(0,0,0,0.85)'; x.beginPath(); x.ellipse(S / 2, S * 0.62, S * 0.24, S * 0.42, 0, 0, 7); x.fill(); x.beginPath(); x.arc(S / 2, S * 0.3, S * 0.14, 0, 7); x.fill();
     K.eyesPair(x, S / 2, S * 0.3, S * 0.05, S * 0.02, S * 0.02, '#fff', null, 0, '#fff');
@@ -182,7 +182,7 @@ function mats() {
   { // office wall: pale paint with a darker lower panel
     const S = 512, [c, x] = TK.cv(S);
     x.fillStyle = '#b6ac94'; x.fillRect(0, 0, S, 400);
-    for (let i = 0; i < S; i += 4) { x.fillStyle = `rgba(0,0,0,${Math.random() * 0.03})`; x.fillRect(i, 0, 2, 400); }
+    for (let i = 0; i < S; i += 4) { x.fillStyle = `rgba(0,0,0,${G.random() * 0.03})`; x.fillRect(i, 0, 2, 400); }
     TK.blotch(x, S, 400, 10, '60,50,30', 20, 70, 0.12);
     x.fillStyle = '#5c584e'; x.fillRect(0, 400, S, 112); x.fillStyle = '#3a382f'; x.fillRect(0, 396, S, 6); x.fillStyle = '#2a2820'; x.fillRect(0, 498, S, 14);
     TK.speckle(x, S, S, 12);
@@ -198,7 +198,7 @@ function mats() {
   { // ceiling tiles
     const S = 512, [c, x] = TK.cv(S);
     x.fillStyle = '#c8c4b8'; x.fillRect(0, 0, S, S);
-    for (let i = 0; i < 2000; i++) { x.fillStyle = 'rgba(0,0,0,0.12)'; x.fillRect(Math.random() * S, Math.random() * S, 2, 2); }
+    for (let i = 0; i < 2000; i++) { x.fillStyle = 'rgba(0,0,0,0.12)'; x.fillRect(G.random() * S, G.random() * S, 2, 2); }
     x.strokeStyle = '#7a776c'; x.lineWidth = 6; for (let i = 0; i <= S; i += 128) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, S); x.moveTo(0, i); x.lineTo(S, i); x.stroke(); }
     MM.ceil = TK.std(TK.toTex(c), 0.95);
   }
@@ -278,7 +278,7 @@ class Drone {
     this.room = room;
     const lx = G.rand(room.xl + 1, room.xr - 1), lz = G.rand(2.5, room.L - 1);
     this.m = droneModel(); this.m.position.copy(room.l2w(lx, 1.9, lz)); G.scene.add(this.m);
-    this.pos = this.m.position; this.life = G.rand(25, 50); this.hitCD = 0; this.t = Math.random() * 9; this.wp = null;
+    this.pos = this.m.position; this.life = G.rand(25, 50); this.hitCD = 0; this.t = G.random() * 9; this.wp = null;
     this.snd = A.loop('drone');
   }
   update(dt) {
@@ -318,10 +318,10 @@ class Current {
     const near = G.distXZ(G.player.pos, this.pos) < 9;
     if (this.phase === 'idle' && this.t <= 0) { this.phase = 'warn'; this.t = 1.2; if (near) A.sfx('spark'); }
     else if (this.phase === 'warn') {
-      this.sp.visible = Math.random() < 0.3; this.sp.material.opacity = 0.5;
+      this.sp.visible = G.random() < 0.3; this.sp.material.opacity = 0.5;
       if (this.t <= 0) { this.phase = 'live'; this.t = 1.4; this.done = false; this.lamp.on = true; if (near) A.sfx('static'); }
     } else if (this.phase === 'live') {
-      this.sp.visible = true; this.sp.material.opacity = 1; this.sp.material.rotation = Math.random() * 6;
+      this.sp.visible = true; this.sp.material.opacity = 1; this.sp.material.rotation = G.random() * 6;
       this.sp.scale.setScalar(G.rand(1.8, 2.6));
       const P = G.player;
       if (!this.done && !P.hiding && G.distXZ(P.pos, this.pos) < 1.15 && Math.abs(P.pos.y - this.pos.y) < 0.5) { this.done = true; G.game.damage(25, 'currents'); P.shake = 0.6; }
@@ -359,7 +359,7 @@ G.THEMES.archives = party => {
   const mm = mats();
   return {
     name: 'archives', wall: mm.wall, floor: mm.carpet, ceil: mm.ceil, H: 3.3, door: M.door, trim: M.metal,
-    lamp: 'fluor', lampColor: party ? new THREE.Color().setHSL(Math.random(), 0.8, 0.6).getHex() : 0xf2f4ff, lampI: 12, surface: 'carpet', noPaintings: true,
+    lamp: 'fluor', lampColor: party ? new THREE.Color().setHSL(G.random(), 0.8, 0.6).getHex() : 0xf2f4ff, lampI: 12, surface: 'carpet', noPaintings: true,
     closetMat: M.metal, closetDoor: M.locker, dresserMat: M.metal,
     furn: { cabinet: 4, cubicle: 4, closet: 3, locker: 1.5, plant: 1, none: 2 }, need: ['closet'], lootFurn: 'cabinet',
   };
@@ -448,7 +448,7 @@ SP.fishTank = r => {
   r.box(p.x, 0.4, p.z, 1.4, 0.8, 0.6, M.darkwood);
   r.box(p.x, 1.15, p.z, 1.3, 0.7, 0.5, M.glass, { collide: false, uv: 1 });
   const fish = [];
-  for (let i = 0; i < 4; i++) { const f = r.mesh(GEO.sphere, new THREE.MeshBasicMaterial({ color: G.pick([0xff8a20, 0xffd040, 0x60b0ff]) }), p.x, 1.1, p.z, null, 0.06, 0.04, 0.03); r.mats.push(f.material); fish.push({ f, a: Math.random() * 7, sp: G.rand(0.6, 1.4) }); }
+  for (let i = 0; i < 4; i++) { const f = r.mesh(GEO.sphere, new THREE.MeshBasicMaterial({ color: G.pick([0xff8a20, 0xffd040, 0x60b0ff]) }), p.x, 1.1, p.z, null, 0.06, 0.04, 0.03); r.mats.push(f.material); fish.push({ f, a: G.random() * 7, sp: G.rand(0.6, 1.4) }); }
   r.updaters.push(dt => { fish.forEach(o => { o.a += dt * o.sp; o.f.position.x = p.x + Math.sin(o.a) * 0.5; o.f.position.y = 1.1 + Math.sin(o.a * 1.7) * 0.15; o.f.rotation.y = Math.cos(o.a) > 0 ? 0 : Math.PI; }); });
   const it = r.addInter(r.l2w(p.x, 1.1, p.z), () => (it.fed ? null : 'Feed the Fih'), () => { it.fed = true; A.sfx('good'); U.caption('Fih are friends.', 2); }, 1.9);
 };
@@ -741,13 +741,13 @@ FL.archives = {
     if (sc) {
       sc.t += dt;
       const x = sc.ctx, w = x.canvas.width, h = x.canvas.height;
-      x.strokeStyle = `rgba(10,10,10,${0.5 + Math.random() * 0.4})`; x.lineWidth = G.rand(3, 9); x.lineCap = 'round';
-      for (let i = 0; i < 4; i++) { let px = Math.random() * w, py = Math.random() * h; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += G.rand(-90, 90); py += G.rand(-90, 90); x.lineTo(px, py); } x.stroke(); }
-      if (Math.random() < dt * 1.5) { const ex = Math.random() * w, ey = Math.random() * h; x.fillStyle = '#000'; x.beginPath(); x.arc(ex, ey, 30, 0, 7); x.arc(ex + 80, ey, 30, 0, 7); x.fill(); x.fillStyle = '#eee'; x.beginPath(); x.arc(ex + 4, ey, 6, 0, 7); x.arc(ex + 84, ey, 6, 0, 7); x.fill(); }
+      x.strokeStyle = `rgba(10,10,10,${0.5 + G.random() * 0.4})`; x.lineWidth = G.rand(3, 9); x.lineCap = 'round';
+      for (let i = 0; i < 4; i++) { let px = G.random() * w, py = G.random() * h; x.beginPath(); x.moveTo(px, py); for (let k = 0; k < 8; k++) { px += G.rand(-90, 90); py += G.rand(-90, 90); x.lineTo(px, py); } x.stroke(); }
+      if (G.random() < dt * 1.5) { const ex = G.random() * w, ey = G.random() * h; x.fillStyle = '#000'; x.beginPath(); x.arc(ex, ey, 30, 0, 7); x.arc(ex + 80, ey, 30, 0, 7); x.fill(); x.fillStyle = '#eee'; x.beginPath(); x.arc(ex + 4, ey, 6, 0, 7); x.arc(ex + 84, ey, 6, 0, 7); x.fill(); }
       if (P.hiding) { sc.hideT += dt; if (sc.hideT > 1.2) { this.endScribbles(); U.caption('Scribbles lost you.', 2); } }
       else { sc.dmgT -= dt; if (sc.dmgT <= 0) { sc.dmgT = 0.5; game.damage(4, 'scribbles'); } if (sc.t > 16) this.endScribbles(); }
     }
-    if (this.ransom && Math.random() < dt * 2) G.player.shake = Math.max(G.player.shake, 0.15);
+    if (this.ransom && G.random() < dt * 2) G.player.shake = Math.max(G.player.shake, 0.15);
     U.extra(this.ticket ? `🎟 Return the ticket within ${this.ticket.left} doors` : (this.ransom ? '🔒 Inventory locked by Ransom' : ''));
   },
 };
@@ -829,7 +829,7 @@ class Noise {
       }
       return true;
     }
-    this.screen.color.setHex(Math.random() < 0.5 ? 0xffffff : 0x888888);
+    this.screen.color.setHex(G.random() < 0.5 ? 0xffffff : 0x888888);
     if (this.state === 'wake') { this.t -= dt; if (this.t <= 0) { this.state = 'follow'; this.ci = Math.max(0, g.crumbs.length - 1); this.s.visible = true; } return true; }
     const cr = g.crumbs, dist = this.pos.distanceTo(P.pos);
     if (P.moving) {
@@ -840,7 +840,7 @@ class Noise {
       }
     }
     this.s.position.copy(this.pos).add(new V3(G.rand(-0.06, 0.06), 1.4, G.rand(-0.06, 0.06)));
-    this.s.material.opacity = 0.7 + Math.random() * 0.3;
+    this.s.material.opacity = 0.7 + G.random() * 0.3;
     if (this.snd) this.snd.set(G.clamp(1 - dist / 16, 0.1, 1) * 0.8);
     if (dist < 1.0 && !P.hiding) g.kill('noise', this);
     return true;
@@ -975,7 +975,7 @@ SP.depot = (game, at, n, landing) => {
     const lid = r.box(p.x, 0.83, p.z, 1.04, 0.06, 0.84, M.metal, { collide: false });
     const it = r.addInter(r.l2w(p.x, 0.8, p.z), () => (it.open ? null : 'Open container'), () => {
       it.open = true; lid.position.y += 0.25; lid.rotation.x = -0.6; A.sfx('drawer'); game.noise(G.player.pos, 6);
-      const roll = Math.random();
+      const roll = G.random();
       if (roll < 0.35 && landing >= 2) { const k = G.randi(2, 3); for (let s = 0; s < k; s++) game.spawn(new Stem(r, r.l2w(p.x + G.rand(-0.4, 0.4), 0, p.z + 0.8))); U.caption('Stems! Click them to pop them.', 2.5); A.sfx('attack'); }
       else if (roll < 0.7) { FL.stairwell.salvage.length < 5 ? (FL.stairwell.salvage.push(G.randi(2, 5)), U.caption('Valuable salvage.', 1.5), A.sfx('pickup')) : game.addGold(G.randi(5, 15)); }
       else if (roll < 0.85) game.addGold(G.randi(6, 18));

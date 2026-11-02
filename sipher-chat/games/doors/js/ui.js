@@ -72,6 +72,7 @@ U.init = () => {
         <nav id="menu-nav">
           <button data-tab="play" class="on">Play</button>
           <button data-tab="shop">Pre-Run Shop</button>
+          <button data-tab="avatar">Avatar</button>
           <button data-tab="entities">Entities</button>
           <button data-tab="howto">How to Play</button>
           <button data-tab="settings">Settings</button>
@@ -89,7 +90,9 @@ U.tab = t => {
   document.querySelectorAll('#menu-nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   const main = $('menu-main');
   $('knobs-n').textContent = G.save.knobs;
-  if (t === 'play') {
+  G.avatar.stopPreview();
+  if (t === 'avatar') G.avatar.renderTab(main);
+  else if (t === 'play') {
     main.innerHTML = `<h2>Choose a floor</h2><div class="floors">${G.FLOOR_ORDER.map(id => {
       const f = G.FLOORS[id], best = G.save.best[id], won = G.save.wins[id];
       return `<div class="floor-card" style="--acc:${f.color}">
