@@ -92,7 +92,8 @@ const Game = G.game = {
     this.genNext(); this.genNext();
     const r0 = this.rooms[0];
     this.cur = r0;
-    P.pos.copy(r0.l2w(0, 0, 1.4)); P.pos.y = 0; P.yaw = r0.spawnYaw;
+    const sp = r0.spawnLocal || [0, 1.4];
+    P.pos.copy(r0.l2w(sp[0], 0, sp[1])); P.pos.y = 0; P.yaw = r0.spawnYaw;
     r0.entered = true;
     if (r0.onEnter) r0.onEnter();
     if (f.onEnter) f.onEnter(this, r0);

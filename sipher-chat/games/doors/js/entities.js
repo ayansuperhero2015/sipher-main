@@ -36,6 +36,9 @@ class Rusher {
     if (this.t < 0) {
       const k = 1 + this.t / this.C.wait;
       this.snd.set(k * k * 0.35);
+      // Lights keep flickering where you are (and the room you just opened) until it arrives.
+      const cur = G.game.cur;
+      if (cur && this.C.flick) for (const r of G.game.rooms) if (Math.abs(r.index - cur.index) <= 1) r.flicker = Math.max(r.flicker, 0.2);
       if (this.kind === 'a60' && G.game.cur) G.player.shake = Math.max(G.player.shake, 0.08 * k);
       return true;
     }

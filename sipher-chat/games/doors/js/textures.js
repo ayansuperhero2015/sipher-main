@@ -78,11 +78,11 @@ function planks(c1, rows = 16, S = 512) {
 }
 function carpet() {
   const S = 512, [c, x] = cv(S);
-  x.fillStyle = '#5a1416'; x.fillRect(0, 0, S, S);
-  x.strokeStyle = 'rgba(214,170,90,0.45)'; x.lineWidth = 3;
+  x.fillStyle = '#4c3d3d'; x.fillRect(0, 0, S, S);
+  x.strokeStyle = 'rgba(160,130,110,0.4)'; x.lineWidth = 3;
   for (let i = 0; i < S; i += 128) for (let j = 0; j < S; j += 128) {
     x.beginPath(); x.moveTo(i + 64, j + 14); x.lineTo(i + 114, j + 64); x.lineTo(i + 64, j + 114); x.lineTo(i + 14, j + 64); x.closePath(); x.stroke();
-    x.fillStyle = 'rgba(214,170,90,0.35)'; x.beginPath(); x.arc(i + 64, j + 64, 9, 0, 7); x.fill();
+    x.fillStyle = 'rgba(160,130,110,0.3)'; x.beginPath(); x.arc(i + 64, j + 64, 9, 0, 7); x.fill();
   }
   x.fillStyle = 'rgba(0,0,0,0.2)'; for (let i = 0; i < S; i += 4) x.fillRect(0, i, S, 1);
   speckle(x, S, S, 22);
@@ -389,12 +389,13 @@ G.faceSprite = (name, scale = 2) => {
 /* ---------- materials + shared geometry ---------- */
 const std = (map, rough = 0.85, extra = {}) => new THREE.MeshStandardMaterial(Object.assign({ map, roughness: rough, metalness: 0 }, extra));
 G.makeMats = () => {
-  M.wallA = std(wallpaper('#5b4636', 'rgba(150,115,75,0.32)', '#3d2716'));
-  M.wallB = std(wallpaper('#3c4a3a', 'rgba(150,170,120,0.22)', '#33241a'));
-  M.wallC = std(wallpaper('#5a3034', 'rgba(190,120,110,0.25)', '#3a2018'));
-  M.wallD = std(wallpaper('#3f3f52', 'rgba(150,150,190,0.22)', '#2c2018'));
-  M.floor = std(planks('#5a3a22'), 0.7);
-  M.floor2 = std(planks('#4a2f1c'), 0.7);
+  // Palette sampled from the real DOORS lobby export (Wall1 #3f5347, Wallstrip #76625e, Wood #493328).
+  M.wallA = std(wallpaper('#3f5347', 'rgba(150,175,150,0.18)', '#4a3a30'));
+  M.wallB = std(wallpaper('#4e4238', 'rgba(170,140,110,0.2)', '#3e2c22'));
+  M.wallC = std(wallpaper('#523437', 'rgba(190,130,120,0.2)', '#3e2a22'));
+  M.wallD = std(wallpaper('#3f4a52', 'rgba(150,165,185,0.18)', '#3a2c24'));
+  M.floor = std(planks('#5f5250'), 0.7);
+  M.floor2 = std(planks('#493328'), 0.7);
   M.carpet = std(carpet(), 0.95);
   M.ceil = std(plaster('#bfb39e', false), 0.95);
   M.trim = std(planks('#3a2414', 6, 256), 0.6);

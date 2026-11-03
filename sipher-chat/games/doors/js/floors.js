@@ -39,7 +39,8 @@ FL.hotel = {
   init() {
     this.chases = [G.randi(27, 34), G.randi(64, 72)];
     const bad = v => v === 50 || this.chases.some(a => v >= a - 7 && v < a + 7);
-    this.halts = new Set([pickApart(14, 24, bad), pickApart(40, 48, bad), pickApart(78, 88, bad)].filter(v => v > 0));
+    // Halt is rare: at most one hallway per run, and only half the time.
+    this.halts = new Set(G.chance(0.5) ? [pickApart(30, 89, bad)].filter(v => v > 0) : []);
     this.lastRush = 0;
   },
   chaseIdx(n) { for (const a of this.chases) if (n >= a && n < a + 6) return n - a; return -1; },
@@ -77,7 +78,7 @@ FL.hotel = {
     const room = game.roomByIndex(n);
     if (!room) return;
     if (n - this.lastRush > 5 && !game.rush) {
-      if (n >= 20 && G.chance(0.05)) { this.lastRush = n; game.spawn(new E.Rusher('ambush')); }
+      if (n >= 52 && G.chance(0.04)) { this.lastRush = n; game.spawn(new E.Rusher('ambush')); }
       else if (G.chance(0.11)) { this.lastRush = n; game.spawn(new E.Rusher('rush')); }
     }
     if (n >= 6 && G.chance(0.06)) game.spawn(new E.Gazer(room, 'eyes'));
@@ -94,7 +95,7 @@ FL.mines = {
   init() {
     this.chases = [G.randi(118, 128), G.randi(168, 178)];
     const bad = v => v === 150 || this.chases.some(a => v >= a - 7 && v < a + 7);
-    this.halts = new Set([pickApart(132, 146, bad), pickApart(182, 195, bad)].filter(v => v > 0));
+    this.halts = new Set(G.chance(0.4) ? [pickApart(120, 195, bad)].filter(v => v > 0) : []);
     this.lastRush = 100;
   },
   chaseIdx(n) { for (const a of this.chases) if (n >= a && n < a + 5) return n - a; return -1; },
@@ -134,7 +135,7 @@ FL.mines = {
     const room = game.roomByIndex(n);
     if (!room) return;
     if (n - this.lastRush > 5 && !game.rush) {
-      if (n >= 115 && G.chance(0.055)) { this.lastRush = n; game.spawn(new E.Rusher('ambush')); }
+      if (n >= 130 && G.chance(0.04)) { this.lastRush = n; game.spawn(new E.Rusher('ambush')); }
       else if (G.chance(0.1)) { this.lastRush = n; game.spawn(new E.Rusher('rush')); }
     }
     if (G.chance(0.05)) game.spawn(new E.Gazer(room, 'eyes'));
