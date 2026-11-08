@@ -109,6 +109,11 @@ body.tint-haste #fx-tint { opacity: 0.5; background: #ff1a1a; }
 body.beat #fx-vignette::after { animation: fearbeat 0.35s ease-out; }
 @keyframes fearbeat { 0% { opacity: calc(var(--fear, 0) * 1.2); } 100% { opacity: calc(var(--fear, 0) * 0.5); } }
 body.playing #fx-vignette { display: none; }
+/* cutscene letterbox */
+body::before, body::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 41; transition: height 0.5s ease; pointer-events: none; }
+body::before { top: 0; } body::after { bottom: 0; }
+body.cine::before, body.cine::after { height: 12vh; }
+body.cine #hud { opacity: 0; transition: opacity 0.4s; }
 #hide-eyes { position: absolute; left: 50%; top: 46%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); opacity: 0; mix-blend-mode: screen; filter: blur(1px); z-index: 2; pointer-events: none; }
 #hide-overlay.tense .slats { animation: shake 0.25s infinite; filter: brightness(0.6); }
 #hide-overlay.rattle .slats { animation: shake 0.06s infinite; background: repeating-linear-gradient(180deg, rgba(10,6,3,0.92) 0 18px, rgba(10,6,3,0) 18px 38px); }
@@ -285,3 +290,4 @@ body:not(.playing) #hud { display: none; }
 .av-chip:hover { border-color: var(--gold); }
 .av-chip.on { border-color: var(--gold); background: rgba(216,180,106,0.22); color: var(--gold-2); }
 .av-tip { color: var(--dim); font-size: 14px; margin-top: 10px; }
+

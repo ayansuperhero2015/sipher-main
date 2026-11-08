@@ -162,12 +162,15 @@ SP.halt = (game, at, n, base) => {
   r.shell(); r.makeExit(r.exits[0], { number: n + 1 });
   for (let z = 4; z < r.L; z += 9) r.lamp(0, r.H, z, { type: 'pendant' });
   const h = { phase: 'wait', t: 3, z: 0 };
-  h.sprite = G.faceSprite('halt', 1.9); h.sprite.visible = false; r.group.add(h.sprite);
+  h.sprite = G.models.halt ? G.models.halt() : G.faceSprite('halt', 1.9);
+  h.sprite.rotation.y = Math.PI; // faces back down the hallway, toward the player
+  h.sprite.visible = false; r.group.add(h.sprite);
   r.onEnter = () => { sealPrev(game, n); G.audio.sfx('halt'); G.ui.caption('Something cold lingers in this hallway...', 3); };
   r.onDispose = () => G.ui.tint('halt', false);
   r.updaters.push(dt => {
     G.ui.tint('halt', game.cur === r);
     if (game.cur !== r) h.sprite.visible = false;
+    if (h.sprite.visible && h.sprite.userData.tick) h.sprite.userData.tick(dt);
     if (game.cur !== r || game.state !== 'play') return;
     const pl = r.w2l(G.player.pos);
     if (h.phase === 'wait') {

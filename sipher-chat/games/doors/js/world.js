@@ -134,6 +134,14 @@ class Room {
       this.mesh(GEO.bulb, mat, 0, 0, 0, g);
       ly = 0;
     }
+    // Downloaded fixtures dress the chandeliers and mine lanterns (the bulbs stay for flicker).
+    if (G.assetModel && type === 'chandelier') {
+      const m = G.assetModel('chandblack', 0, { fit: [1.2, 0.9, 1.2] });
+      if (m) { m.position.y = -1.0; g.add(m); }
+    } else if (G.assetModel && type === 'lantern') {
+      const m = G.assetModel('mining', 0, { part: 'PP_Lantern_02_Yellow_Light_Iron', fit: [0.3, 0.45, 0.3] });
+      if (m) { m.position.y = -0.95; g.add(m); }
+    }
     const L = {
       pos: g.localToWorld(new V3(0, ly, 0)), color, base: o.intensity || this.theme.lampI || 14, dist: o.dist || this.theme.lampD || 11,
       mat, on: !this.dark && !o.off, broken: false, room: this, f: 1, buzz: !!o.buzz, group: g,

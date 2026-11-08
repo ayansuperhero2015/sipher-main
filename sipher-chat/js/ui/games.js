@@ -2,14 +2,23 @@ import { h, toast } from "../dom.js";
 import { openModal } from "./modal.js";
 
 // Games live in games/<id>/ next to index.svg, at the same commit as this
-// file. The first one in the list is shown first.
+// file. The first one in the list is shown first. `party` games can be
+// played together (they load js/party.js when opened with a party).
 const GAMES = [
   {
     id: "doors",
     title: "Doors",
     art: "DOORS",
+    party: true,
     blurb:
       "The Hotel, The Mines, The Backdoor, The Rooms, The Outdoors, The Archives and The Stairwell. Hide, survive, escape.",
+  },
+  {
+    id: "bedraid",
+    title: "Bed Raid",
+    art: "BED RAID",
+    blurb:
+      "Four teams on floating islands. Farm generators, shop, bridge across, break enemy beds and be the last team standing. Solos, Duos and Squads with bots.",
   },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
@@ -90,7 +99,7 @@ export function gamesModal({ startParty } = {}) {
           h(
             "div",
             { class: "game-card" },
-            h("div", { class: "game-art" }, game.art),
+            h("div", { class: `game-art game-art-${game.id}` }, game.art),
             h(
               "div",
               { class: "game-body" },
@@ -100,6 +109,7 @@ export function gamesModal({ startParty } = {}) {
                 "div",
                 { class: "game-actions" },
                 startParty &&
+                  game.party &&
                   h(
                     "button",
                     {
@@ -114,13 +124,13 @@ export function gamesModal({ startParty } = {}) {
                 h(
                   "button",
                   {
-                    class: `btn ${startParty ? "ghost" : "primary"} small`,
+                    class: `btn ${startParty && game.party ? "ghost" : "primary"} small`,
                     onclick: () => {
                       launchGame(game.id);
                       close();
                     },
                   },
-                  "Play solo",
+                  game.party ? "Play solo" : "Play",
                 ),
               ),
             ),

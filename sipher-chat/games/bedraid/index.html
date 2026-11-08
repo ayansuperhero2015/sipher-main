@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BED RAID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game"></div>
+<div id="fx-damage"></div>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+  <div id="break-ring" class="hidden"><i></i></div>
+  <div id="scoreboard"></div>
+  <div id="killfeed"></div>
+  <div id="announce"></div>
+  <div id="toast"></div>
+  <div id="prompt"></div>
+  <div id="respawn" class="hidden"></div>
+  <div id="bottom">
+    <div id="statusrow">
+      <div id="hp"><div id="hp-fill"></div><span id="hp-text">100</span></div>
+      <div id="armor-ico"></div>
+      <div id="effects"></div>
+    </div>
+    <div id="hotbar"></div>
+    <div id="res"></div>
+  </div>
+  <div id="bowcharge" class="hidden"><i></i></div>
+</div>
+
+<div id="shop" class="hidden"></div>
+<div id="menu"></div>
+<div id="pause" class="hidden"></div>
+<div id="end" class="hidden"></div>
+<div id="clicklock" class="hidden"><div>Click to play</div></div>
+<div id="loading"><div class="ld-logo">BED RAID</div><div class="ld-sub">Loading islands…</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+window.THREE = THREE; window.GLTFLoader = GLTFLoader; window.SkeletonUtils = SkeletonUtils;
+const models = ['bed', 'sword', 'pickaxe', 'bow', 'tnt', 'gem', 'emerald', 'ingot', 'keeper', 'tree'].map(m => 'models/' + m + '.js');
+const files = ['js/core.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/map.js', 'js/assets.js', 'js/avatar.js', 'js/items.js', 'js/actors.js', 'js/bots.js', 'js/entities.js', 'js/ui.js', ...models, 'js/main.js'];
+const BUILD = Date.now(); // always load fresh scripts
+for (const f of files) {
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = f + '?v=' + BUILD; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + f));
+    document.body.appendChild(s);
+  });
+}
+document.querySelector('.ld-sub').textContent = 'Spawning generators…';
+await G.assets.loadAll();
+G.boot();
+</script>
+</body>
+</html>

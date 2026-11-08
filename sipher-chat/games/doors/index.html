@@ -70,9 +70,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 window.THREE = THREE; window.GLTFLoader = GLTFLoader; window.SkeletonUtils = SkeletonUtils;
-const models = ['lobby', 'cobbler', 'closet', 'crucifix', 'key'].map(m => 'models/' + m + '.js');
-const files = ['js/core.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/entities.js', 'js/specials.js', 'js/floors.js', 'js/ui.js', 'js/subfloors.js', 'js/fear.js', 'js/post.js', 'js/dread.js', 'js/assets.js', 'js/avatar.js', ...models, 'js/main.js'];
-const BUILD = '2026-11-03b'; // bump when scripts change so browsers never run stale copies
+const models = ['lobby', 'cobbler', 'closet', 'crucifix', 'key', 'bed', 'chandblack', 'oldfurniture', 'mining', 'industrial'].map(m => 'models/' + m + '.js');
+const files = ['js/core.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/entities.js', 'js/specials.js', 'js/floors.js', 'js/ui.js', 'js/subfloors.js', 'js/fear.js', 'js/post.js', 'js/dread.js', 'js/assets.js', 'js/avatar.js', ...models, 'js/main.js', 'js/seekchase.js'];
+const BUILD = '2026-11-08a'; // bump when scripts change so browsers never run stale copies
 for (const f of files) {
   await new Promise((res, rej) => {
     const s = document.createElement('script');

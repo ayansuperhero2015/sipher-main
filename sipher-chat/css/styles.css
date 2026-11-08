@@ -2763,6 +2763,13 @@ button.message-avatar {
   letter-spacing: 0.2em;
 }
 
+.game-art-bedraid {
+  background: linear-gradient(180deg, #4f9be8 0%, #bfe3ff 62%, #56b83a 62%, #3f8a2a 72%, #6e4a22 72%);
+  color: #fff;
+  letter-spacing: 0.08em;
+  text-shadow: 0 3px 0 #c23a2f, 0 6px 10px rgba(0, 0, 0, 0.4);
+}
+
 .game-body {
   display: flex;
   flex-direction: column;

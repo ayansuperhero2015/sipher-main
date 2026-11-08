@@ -22,7 +22,13 @@ AS.loadAll = async () => {
 G.assetModel = (name, height, o = {}) => {
   const a = AS.models[name];
   if (!a) return null;
-  const clone = window.SkeletonUtils.clone(a.scene);
+  // o.part picks one named object out of a pack; its parents' transform is baked in so it stays upright.
+  a.scene.updateMatrixWorld(true);
+  const src = o.part ? a.scene.getObjectByName(o.part) : a.scene;
+  if (!src) return null;
+  const inner = window.SkeletonUtils.clone(src);
+  if (o.part && src.parent) { inner.position.set(0, 0, 0); inner.applyMatrix4(src.parent.matrixWorld); }
+  const clone = new THREE.Group(); clone.add(inner);
   if (o.rotY) clone.rotation.y = o.rotY;
   if (o.rotX) clone.rotation.x = o.rotX;
   clone.updateMatrixWorld(true);
@@ -76,6 +82,99 @@ F.closet = (room, g) => {
   room.addInter(g.localToWorld(new V3(0, 1.3, 1.0)), () => (G.player.hiding ? null : 'Hide'), () => G.game.hide(spot), 2.1);
 };
 F.closet.w = closet0.w; F.closet.d = closet0.d;
+
+// Four-poster beds.
+const bed0 = F.bed;
+F.bed = (room, g) => {
+  const m = G.assetModel('bed', 0, { fit: [1.85, 2.5, 2.15] });
+  if (!m) return bed0(room, g);
+  m.position.set(0, 0, 1.08); g.add(m);
+  room.addCol(0, 0.5, 1.08, 1.8, 1, 2.1, g);
+};
+F.bed.w = bed0.w; F.bed.d = bed0.d;
+
+// Lockers (Rooms, Mines, the Nest...) use the industrial pack's locker.
+const locker0 = F.locker;
+F.locker = (room, g) => {
+  const m = G.assetModel('industrial', 0, { part: 'Locker', fit: [0.85, 2.1, 0.7] });
+  if (!m) return locker0(room, g);
+  m.position.set(0, 0, 0.33); g.add(m);
+  room.addCol(0, 1.05, 0.33, 0.8, 2.1, 0.66, g);
+  const fwd = g.localToWorld(new V3(0, 0, 1)).sub(g.localToWorld(new V3(0, 0, 0)));
+  const spot = { kind: 'locker', room, doors: [m], in: g.localToWorld(new V3(0, 0, 0.33)), out: g.localToWorld(new V3(0, 0, 1.1)), yaw: G.yawFromDir(fwd.x, fwd.z) };
+  room.hides.push(spot);
+  room.addInter(g.localToWorld(new V3(0, 1.3, 0.8)), () => (G.player.hiding ? null : 'Hide'), () => G.game.hide(spot), 2.0);
+};
+F.locker.w = locker0.w; F.locker.d = locker0.d;
+
+// Crates and barrels come from the industrial and mining packs.
+const CRATES = [['industrial', 'Crate'], ['industrial', 'CrateWood2'], ['industrial', 'CrateMetal'], ['mining', 'PP_Crate_Wooden_03']];
+const BARRELS = [['industrial', 'BarrelOil'], ['industrial', 'BarrelWater'], ['industrial', 'BarrelWine'], ['mining', 'PP_Barrel_03']];
+const crate0 = F.crate, barrel0 = F.barrel;
+F.crate = (room, g) => {
+  const [pack, part] = G.pick(CRATES), s = G.rand(0.85, 1.15);
+  const m = G.assetModel(pack, 0, { part, fit: [s, s, s], rotY: G.randi(0, 3) * Math.PI / 2 });
+  if (!m) return crate0(room, g);
+  m.position.set(0, 0, 0.6); g.add(m);
+  const b = new THREE.Box3().setFromObject(m).getSize(new V3());
+  room.addCol(0, b.y / 2, 0.6, b.x, b.y, b.z, g);
+};
+F.crate.w = crate0.w; F.crate.d = crate0.d;
+F.barrel = (room, g) => {
+  const [pack, part] = G.pick(BARRELS);
+  const m = G.assetModel(pack, 0, { part, fit: [0.75, 1.05, 0.75] });
+  if (!m) return barrel0(room, g);
+  m.position.set(0, 0, 0.4); g.add(m);
+  room.addCol(0, 0.5, 0.4, 0.7, 1, 0.7, g);
+};
+F.barrel.w = barrel0.w; F.barrel.d = barrel0.d;
+
+// Antique drawer chest: a decorative hotel piece.
+F.chest = (room, g) => {
+  const m = G.assetModel('oldfurniture', 0, { part: 'MidldleDrawer001', fit: [1.3, 1.5, 0.6] });
+  if (!m) return;
+  m.position.set(0, 0, 0.3); g.add(m);
+  room.addCol(0, 0.7, 0.3, 1.3, 1.4, 0.6, g);
+};
+F.chest.w = 1.35; F.chest.d = 0.62;
+const hotel0 = G.THEMES.hotel;
+G.THEMES.hotel = () => { const th = hotel0(); if (AS.models.oldfurniture) th.furn = Object.assign({}, th.furn, { chest: 0.9 }); return th; };
+
+// Mines: carts, tools and crates scattered through caves and tunnels.
+const mines0 = G.THEMES.mines;
+G.THEMES.mines = () => {
+  const th = mines0(), ex = th.extras;
+  th.extras = (room, cfg) => { ex(room, cfg); minesDecor(room); };
+  return th;
+};
+function freeSpot(room, w, d) {
+  for (let t = 0; t < 40; t++) {
+    const x = G.rand(room.xl + w / 2 + 0.3, room.xr - w / 2 - 0.3), z = G.rand(2.5 + d / 2, room.L - 1.5 - d / 2);
+    const r = { x0: x - w / 2 - 0.5, x1: x + w / 2 + 0.5, z0: z - d / 2 - 0.5, z1: z + d / 2 + 0.5 };
+    if (room.placed.some(p => p.x0 < r.x1 && p.x1 > r.x0 && p.z0 < r.z1 && p.z1 > r.z0)) continue;
+    if (Math.abs(x) < 1.4 && z < 3) continue;
+    room.placed.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 });
+    return { x, z };
+  }
+  return null;
+}
+function minesDecor(room) {
+  if (!AS.models.mining) return;
+  if (room.kind === 'cave' && G.chance(0.6)) {
+    const p = freeSpot(room, 3.4, 1.4);
+    if (p) {
+      const m = G.assetModel('mining', 0, { part: 'PP_Horse_Cart_Used_02', fit: [3.3, 1.4, 1.4] });
+      m.position.set(p.x, 0, p.z); room.group.add(m);
+      room.addCol(p.x, 0.7, p.z, 3.3, 1.4, 1.3);
+    }
+  }
+  for (const part of ['PP_Pickaxe_Used_04_Iron', 'PP_Shovel_Used_03_Iron', 'PP_Hammer_Used_02_Iron', 'PP_Saw_Used_05_Iron']) {
+    if (!G.chance(0.35)) continue;
+    const p = freeSpot(room, 0.7, 0.7); if (!p) continue;
+    const m = G.assetModel('mining', 0, { part, fit: [0.7, 0.7, 0.7], rotY: G.rand(0, 6) });
+    m.position.set(p.x, 0, p.z); room.group.add(m);
+  }
+}
 
 // Keys use the DOORS key model.
 const kp0 = F.keyPickup;

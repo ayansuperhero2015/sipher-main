@@ -75,7 +75,7 @@ const Game = G.game = {
     const f = this.floor = G.FLOORS[id];
     this.id = id; this.state = 'play'; this.paused = false;
     this.gold = 0; this.time = 0; this.crumbs = []; this.chase = false; this.baseDir = 0; this.hideLimit = 20;
-    this.maxIndex = f.start; this.screechT = 0; this.escaping = false; this.itemsLocked = false; this.goldMul = 1; this.lightOn = false; this.light = null;
+    this.maxIndex = f.start; this.screechT = 0; this.escaping = false; this.itemsLocked = false; this.foundCrucifix = false; this.goldMul = 1; this.lightOn = false; this.light = null;
     const P = G.player;
     Object.assign(P, { hp: 100, hiding: null, crouch: false, speedMul: 1, vitT: 0, boost: 1, rooted: 0, shake: 0, pitch: 0, eye: 1.6, hideT: 0, moving: false });
     P.vel.set(0, 0, 0);
@@ -341,9 +341,10 @@ const Game = G.game = {
     const r = G.random();
     if (r < 0.03) { this.scare('timothy', 5); return; }
     if (r < 0.45) { this.addGold(G.randi(3, 15)); return; }
-    const table = [['battery', 0.08], ['bandage', 0.06], ['lighter', 0.03], ['lockpick', 0.035], ['vitamins', 0.035], ['flashlight', 0.015], ['crucifix', 0.006]];
+    // Crucifixes are very rare loot: about 1 in 2,500 drawers, and never more than one per run.
+    const table = [['battery', 0.08], ['bandage', 0.06], ['lighter', 0.03], ['lockpick', 0.035], ['vitamins', 0.035], ['flashlight', 0.015], ['crucifix', this.foundCrucifix ? 0 : 0.0004]];
     let acc = 0.45;
-    for (const [id, p] of table) { acc += p; if (r < acc) { this.inv.add(id); return; } }
+    for (const [id, p] of table) { acc += p; if (r < acc) { if (id === 'crucifix') this.foundCrucifix = true; this.inv.add(id); return; } }
     G.ui.caption('Empty.', 1);
   },
   startChannel(dur, pos, tick, done) { this.channel = { t: 0, dur, pos, tick, done }; G.ui.progress(0); },

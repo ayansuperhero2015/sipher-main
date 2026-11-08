@@ -182,9 +182,8 @@ U.roomLabel = t => { const el = $('room-label'); el.textContent = t; el.classLis
 U.hotbar = inv => {
   if (!inv) return;
   const el = $('hotbar');
-  el.innerHTML = Array.from({ length: 6 }, (_, i) => {
-    const it = inv.items[i];
-    if (!it) return `<div class="slot"><i>${i + 1}</i></div>`;
+  // Like the real game: only slots holding an item are shown; an empty inventory shows nothing.
+  el.innerHTML = inv.items.map((it, i) => {
     const bar = it.charge !== undefined ? `<div class="charge"><span style="width:${Math.max(0, it.charge)}%"></span></div>` : '';
     const uses = it.uses > 1 ? `<em>${it.uses}</em>` : '';
     return `<div class="slot ${i === inv.sel ? 'sel' : ''} ${it === G.game.light ? 'lit' : ''}" title="${esc(it.name)}"><i>${i + 1}</i><span>${it.icon}</span>${uses}${bar}</div>`;
