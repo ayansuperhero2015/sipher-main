@@ -65,6 +65,8 @@ for (const f of files) {
 document.querySelector('.ld-sub').textContent = 'Spawning generators…';
 await G.assets.loadAll();
 G.boot();
+// Opened from Sipher's "Play with friends": join the party.
+if (window.SIPHER_PARTY) import('./js/party.js?v=' + BUILD).catch(err => console.error('Party failed to load', err));
 </script>
 </body>
 </html>

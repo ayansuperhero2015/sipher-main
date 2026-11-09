@@ -17,8 +17,9 @@ const GAMES = [
     id: "bedraid",
     title: "Bed Raid",
     art: "BED RAID",
+    party: true,
     blurb:
-      "Four teams on floating islands. Farm generators, shop, bridge across, break enemy beds and be the last team standing. Solos, Duos and Squads with bots.",
+      "Four teams on floating islands. Farm generators, shop, bridge across, break enemy beds and be the last team standing. Play friends, or bots solo.",
   },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);

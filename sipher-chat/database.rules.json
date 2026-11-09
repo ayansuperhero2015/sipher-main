@@ -35,6 +35,8 @@
           "floor": { ".validate": "newData.isString() && newData.val().length <= 32" },
           "seed": { ".validate": "newData.isNumber()" },
           "run": { ".validate": "newData.isNumber()" },
+          "mode": { ".validate": "newData.isString() && newData.val().length <= 16" },
+          "roster": { "$uid": { ".validate": "newData.isNumber()" } },
           "$other": { ".validate": false }
         },
         "players": {
@@ -54,7 +56,7 @@
             ".write": "!newData.exists() && auth != null && root.child('parties').child($partyId).child('meta/host').val() === auth.uid",
             "$event": {
               ".write": "auth != null && !data.exists()",
-              ".validate": "newData.hasChildren(['t', 'r', 'i', 'by', 'at']) && newData.child('by').val() === auth.uid && newData.child('at').val() === now && (newData.child('t').val() === 'door' || newData.child('t').val() === 'use') && newData.child('r').isNumber() && newData.child('i').isNumber()"
+              ".validate": "newData.hasChildren(['t', 'by', 'at']) && newData.child('by').val() === auth.uid && newData.child('at').val() === now && newData.child('t').isString() && newData.child('t').val().length <= 8"
             }
           }
         }
