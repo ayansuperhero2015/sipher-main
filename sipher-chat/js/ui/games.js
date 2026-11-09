@@ -21,6 +21,14 @@ const GAMES = [
     blurb:
       "Four teams on floating islands. Farm generators, shop, bridge across, break enemy beds and be the last team standing. Play friends, or bots solo.",
   },
+  {
+    id: "boomtag",
+    title: "Boom Tag",
+    art: "BOOM TAG",
+    party: true,
+    blurb:
+      "Pass the bomb before it blows. Five arenas, eight abilities to unlock, power-ups, round modifiers, hats and bots.",
+  },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
 

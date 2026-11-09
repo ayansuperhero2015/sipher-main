@@ -34,7 +34,7 @@ G.model = (name, height, o = {}) => {
   clone.position.x -= c.x; clone.position.z -= c.z; clone.position.y -= o.center ? c.y : box.min.y;
   clone.traverse(m => {
     if (!m.isMesh) return;
-    m.frustumCulled = false;
+    m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true;
     // there is no environment map, so metallic Sketchfab materials would render black
     if (m.material && m.material.metalness > 0.2) { m.material = m.material.clone(); m.material.metalness = 0.1; m.material.roughness = Math.max(0.5, m.material.roughness); }
     if (o.tint || o.lambert) {

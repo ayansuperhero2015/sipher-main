@@ -45,6 +45,9 @@
             ".validate": "!newData.exists() || (newData.hasChildren(['name', 'at', 'state']) && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('at').val() === now)"
           }
         },
+        "world": {
+          ".write": "auth != null && root.child('parties').child($partyId).child('meta/host').val() === auth.uid"
+        },
         "looks": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid",

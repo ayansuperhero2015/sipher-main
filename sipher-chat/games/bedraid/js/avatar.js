@@ -29,7 +29,7 @@ const ARMOR = { leather: null, chain: 0x9aa0a8, iron: 0xe6e6e6, diamond: 0x4fe3e
 G.makeAvatar = (o) => {
   const team = G.TEAMS[o.team];
   const skin = new THREE.MeshLambertMaterial({ color: o.skin || G.pick(SKINS) });
-  const shirt = new THREE.MeshLambertMaterial({ color: team.color });
+  const shirt = new THREE.MeshLambertMaterial({ color: o.shirt !== undefined ? o.shirt : team.color });
   const pants = new THREE.MeshLambertMaterial({ color: o.pants || G.pick(PANTS) });
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);
@@ -63,6 +63,8 @@ G.makeAvatar = (o) => {
   // blob shadow
   const sh = new THREE.Mesh(new THREE.CircleGeometry(0.42, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false }));
   sh.rotation.x = -Math.PI / 2; sh.position.y = 0.02; root.add(sh);
+  root.traverse(m => { if (m.isMesh && m !== sh && m !== face) m.castShadow = true; });
+  sh.material.opacity = 0.16;
   const allMats = [skin, shirt, pants, armorMat, faceMat];
   const av = {
     root, body, headG, armL, armR, legL, legR, hand, tag, shadow: sh, held: null, heldId: null,
@@ -75,13 +77,17 @@ G.makeAvatar = (o) => {
     },
     drawTag(name, hp, maxHp, visible = true) {
       const k = tagC.getContext('2d'); k.clearRect(0, 0, 256, 64);
-      k.font = '800 26px Nunito, sans-serif'; k.textAlign = 'center';
-      const w = Math.min(250, k.measureText(name).width + 20);
-      k.fillStyle = 'rgba(0,0,0,0.45)'; k.fillRect(128 - w / 2, 2, w, 34);
+      // outlined name in the team colour, then a segmented health bar in an ink frame
+      k.font = '700 26px Rubik, sans-serif'; k.textAlign = 'center'; k.lineJoin = 'round';
+      k.lineWidth = 7; k.strokeStyle = '#0e121c'; k.strokeText(name, 128, 28);
       k.fillStyle = team.css; k.fillText(name, 128, 28);
-      k.fillStyle = 'rgba(0,0,0,0.55)'; k.fillRect(58, 44, 140, 12);
+      k.fillStyle = '#0e121c'; k.fillRect(66, 40, 124, 16);
       const f = G.clamp(hp / maxHp, 0, 1);
-      k.fillStyle = f > 0.5 ? '#5be05b' : f > 0.25 ? '#ffd23f' : '#ff4b42'; k.fillRect(60, 46, 136 * f, 8);
+      for (let i = 0; i < 10; i++) {
+        const v = G.clamp(f * 10 - i, 0, 1), x = 69 + i * 12;
+        k.fillStyle = '#2a3142'; k.fillRect(x, 43, 10, 10);
+        if (v > 0) { k.fillStyle = f > 0.3 ? '#4fd25a' : '#ff4b3e'; k.fillRect(x, 43, 10 * v, 10); k.fillStyle = 'rgba(255,255,255,0.35)'; k.fillRect(x, 43, 10 * v, 3); }
+      }
       tagT.needsUpdate = true; tag.visible = visible;
     },
     setHeld(id, mesh) {

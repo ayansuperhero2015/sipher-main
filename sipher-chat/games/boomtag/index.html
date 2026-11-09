@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOOM TAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game"></div>
+<canvas id="ind"></canvas>
+<div id="vignette"></div>
+<div id="hud" class="hidden"></div>
+<div id="menu" class="hidden"></div>
+<div id="pause" class="hidden"></div>
+<div id="end" class="hidden"></div>
+<div id="loading"><div class="ld-logo">BOOM TAG</div><div class="hazard"></div><div class="ld-sub">Loading arenas</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+window.THREE = THREE;
+const files = ['js/core.js', '../shared/avatar.js', 'js/icons.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/maps.js', 'js/nav.js', 'js/avatar.js',
+  'js/fx.js', 'js/actors.js', 'js/entities.js', 'js/bots.js', 'js/ui.js', 'js/main.js', 'js/looks.js'];
+const BUILD = Date.now(); // always load fresh scripts
+try {
+  for (const f of files) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = f + '?v=' + BUILD; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + f));
+      document.body.appendChild(s);
+    });
+  }
+  // name tags are drawn on canvas, so make sure the font is ready first
+  try { await Promise.race([document.fonts.load('700 28px "Barlow Condensed"'), new Promise(r => setTimeout(r, 2500))]); } catch (e) { /* offline */ }
+  G.boot();
+  // Opened from Sipher's "Play with friends": join the party.
+  if (window.SIPHER_PARTY) import('./js/party.js?v=' + BUILD).catch(err => console.error('Party failed to load', err));
+} catch (e) {
+  document.querySelector('.ld-sub').textContent = e.message;
+  throw e;
+}
+</script>
+</body>
+</html>

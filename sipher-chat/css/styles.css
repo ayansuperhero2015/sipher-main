@@ -2770,6 +2770,14 @@ button.message-avatar {
   text-shadow: 0 3px 0 #c23a2f, 0 6px 10px rgba(0, 0, 0, 0.4);
 }
 
+.game-art-boomtag {
+  background: #121212;
+  color: #f2f2f0;
+  border-bottom: 8px solid transparent;
+  border-image: repeating-linear-gradient(-45deg, #ffd400 0 10px, #121212 10px 20px) 8;
+  letter-spacing: 0.06em;
+}
+
 .game-body {
   display: flex;
   flex-direction: column;

@@ -91,7 +91,10 @@ U.tab = t => {
   const main = $('menu-main');
   $('knobs-n').textContent = G.save.knobs;
   G.avatar.stopPreview();
-  if (t === 'avatar') G.avatar.renderTab(main);
+  if (t === 'avatar') G.avatar.renderTab(main, {
+    onPick: () => G.audio.sfx('click'),
+    tip: 'In a run, press <kbd>T</kbd> to wave, <kbd>Y</kbd> to dance and <kbd>U</kbd> to point. Saved to your Sipher account, so it follows you to every game.',
+  });
   else if (t === 'play') {
     main.innerHTML = `<h2>Choose a floor</h2><div class="floors">${G.FLOOR_ORDER.map(id => {
       const f = G.FLOORS[id], best = G.save.best[id], won = G.save.wins[id];

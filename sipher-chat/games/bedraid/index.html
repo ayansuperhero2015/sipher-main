@@ -6,8 +6,8 @@
 <title>BED RAID</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=2026-11-08e">
 </head>
 <body>
 <div id="game"></div>
@@ -21,6 +21,7 @@
   <div id="announce"></div>
   <div id="toast"></div>
   <div id="prompt"></div>
+  <div id="held"></div>
   <div id="respawn" class="hidden"></div>
   <div id="bottom">
     <div id="statusrow">
@@ -52,8 +53,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 window.THREE = THREE; window.GLTFLoader = GLTFLoader; window.SkeletonUtils = SkeletonUtils;
-const models = ['bed', 'sword', 'pickaxe', 'bow', 'tnt', 'gem', 'emerald', 'ingot', 'keeper', 'tree'].map(m => 'models/' + m + '.js');
-const files = ['js/core.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/map.js', 'js/assets.js', 'js/avatar.js', 'js/items.js', 'js/actors.js', 'js/bots.js', 'js/entities.js', 'js/ui.js', ...models, 'js/main.js'];
+const models = ['bed', 'sword', 'pickaxe', 'bow', 'tnt', 'gem', 'emerald', 'ingot', 'tree'].map(m => 'models/' + m + '.js');
+const files = ['js/core.js', '../shared/avatar.js', 'js/audio.js', 'js/textures.js', 'js/world.js', 'js/map.js', 'js/assets.js', 'js/avatar.js', 'js/items.js', 'js/actors.js', 'js/bots.js', 'js/entities.js', 'js/ui.js', ...models, 'js/main.js', 'js/looks.js'];
 const BUILD = Date.now(); // always load fresh scripts
 for (const f of files) {
   await new Promise((res, rej) => {

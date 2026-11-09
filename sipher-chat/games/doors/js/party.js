@@ -565,7 +565,7 @@ setInterval(send, SEND_MS);
 function sendLook() {
   if (me) set(root(`looks/${me.uid}`), G.avatar.cfg).catch(() => {});
 }
-addEventListener("doors-avatar", sendLook);
+addEventListener("sipher-avatar", sendLook);
 
 /* ---------- party panel ---------- */
 

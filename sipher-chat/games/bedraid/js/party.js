@@ -45,6 +45,7 @@ const TAB = Math.random().toString(36).slice(2, 10);
 let me = null;
 let meta = {};
 let players = {};
+let looks = {}; // everyone's avatar (games/shared/avatar.js)
 let myRun = 0; // the last match this player joined
 let joinedAt = 0;
 let pending = null; // a match the leader started while we were still playing
@@ -251,6 +252,7 @@ function addPuppet(uid, team) {
   game.spawn(a);
   a.respawnAt = Infinity;
   a.target.copy(a.pos);
+  if (looks[uid]) G.swapLook(a, looks[uid]);
   return a;
 }
 
@@ -606,6 +608,14 @@ const stopAuth = onAuthStateChanged(auth, (user) => {
   me = user;
   onDisconnect(root(`players/${me.uid}`)).remove().catch(() => {});
   send(true);
+  // Our avatar, for friends' screens (and again whenever it changes).
+  const sendLook = () => set(root(`looks/${me.uid}`), window.SipherAvatar.cfg).catch(() => {});
+  sendLook();
+  addEventListener("sipher-avatar", sendLook);
+  onValue(root("looks"), (snap) => {
+    looks = snap.val() || {};
+    for (const a of game.actors) if (a.remote && looks[a.remote]) G.swapLook(a, looks[a.remote]);
+  });
   onValue(
     root("meta"),
     (snap) => {

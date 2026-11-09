@@ -13,7 +13,6 @@ All 3D models below come from Sketchfab under the Creative Commons Attribution l
 | Diamonds | [Gem - low poly](https://sketchfab.com/3d-models/ed0556c4502a4298acafbef0973c8b50) | poonyamano | CC BY 4.0 |
 | Emeralds | [Low Poly 'Emerald'](https://sketchfab.com/3d-models/f5e39d207f204ea0babc1d594020cdc6) | iwillsearch69 | CC BY 4.0 |
 | Iron and gold | [Low poly Iron ingots](https://sketchfab.com/3d-models/6b0d42354f5c4a3eb005e91cbac57ea2) | Twistednc | CC BY 4.0 |
-| Shopkeepers | [Voxel Character Male](https://sketchfab.com/3d-models/30469e36b90f49cb9e973d90af2e0665) | DevJeeth | CC BY 4.0 |
 | Sky island trees | [Voxel tree](https://sketchfab.com/3d-models/ffd56579df0e44ed884ffdcbed5ac767) | mrvovun | CC BY 4.0 |
 
 The models are embedded as base64 in `models/*.js`; only those copies are included here, since the game loads them.

@@ -15,7 +15,7 @@ G.textSprite = (lines, o = {}) => {
     const n = ls.length;
     ls.forEach((l, i) => {
       const fs = l.size || 46;
-      k.font = `${l.font || '900'} ${fs}px ${l.family || 'Nunito, sans-serif'}`;
+      k.font = `${l.font || '900'} ${fs}px ${l.family || 'Rubik, sans-serif'}`;
       const y = c.height / 2 + (i - (n - 1) / 2) * (c.height / Math.max(n, 1.6));
       k.lineWidth = 8; k.strokeStyle = 'rgba(0,0,0,0.8)'; k.strokeText(l.text, c.width / 2, y);
       k.fillStyle = l.color || '#fff'; k.fillText(l.text, c.width / 2, y);
@@ -228,7 +228,7 @@ function hitActor(p, a) {
   if (p.kind === 'arrow') {
     const sp = p.vel.length(), dmg = 6 + 22 * p.power;
     const kb = p.vel.clone().setY(0).normalize().multiplyScalar(3.5);
-    if (a.damage(dmg, p.owner, 'arrow', { x: kb.x, y: 3, z: kb.z })) { p.owner.lastLanded = G.game.time; G.audio.arrowHit(a.pos); fx.blood(a.pos); if (p.owner.isPlayer) G.audio.kill(); }
+    if (a.damage(dmg, p.owner, 'arrow', { x: kb.x, y: 3, z: kb.z })) { p.owner.lastLanded = G.game.time; if (p.owner.isPlayer) G.ui.hitmarker(!a.alive); G.audio.arrowHit(a.pos); fx.blood(a.pos); if (p.owner.isPlayer) G.audio.kill(); }
     p.dead = true; void sp;
   } else if (p.kind === 'fireball') { G.explode(p.pos.clone(), 2.6, 22, p.owner); p.dead = true; }
   else if (p.kind === 'pearl') { landPearl(p); }
@@ -253,24 +253,40 @@ function landPearl(p) {
 G.clearProjectiles = () => { for (const p of projs) G.scene.remove(p.mesh); projs.length = 0; for (const t of tnts) G.scene.remove(t.g); tnts.length = 0; };
 
 /* ---------- shopkeepers and beds ---------- */
-G.makeKeeper = (pos, yaw, label, color) => {
+// Shopkeepers are blocky characters like the players, in a merchant outfit: apron, hat and a
+// counter in front of them, so they read as shops instead of floating NPCs.
+G.makeKeeper = (pos, yaw, label, color, kind = 'item', team = 0) => {
   const g = new THREE.Group(); g.position.copy(pos); g.rotation.y = yaw;
-  const m = G.model('keeper', 1.95);
-  if (m) g.add(m);
-  else { const av = G.makeAvatar({ team: 0 }); g.add(av.root); }
-  const tag = G.textSprite([{ text: label, color, size: 50 }, { text: 'RIGHT CLICK or E', size: 30, color: '#ffffff' }], { scale: 0.85 });
-  tag.position.y = 2.55; g.add(tag);
+  const item = kind === 'item';
+  const av = G.makeAvatar({ team, shirt: item ? 0xf3efe6 : 0x2c3e57, pants: 0x3a2c22, skin: item ? 0xe0a878 : 0xf5c99b, face: item ? 0 : 2 });
+  av.drawTag('', 1, 1, false);
+  const lam = c => new THREE.MeshLambertMaterial({ color: c });
+  const apron = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.04), lam(item ? 0xc8862a : 0x2a9d8f));
+  apron.position.set(0, 0.95, 0.2); av.body.add(apron);
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.62), lam(item ? 0x5a3c1a : 0x1f2a3c));
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.22, 0.44), lam(item ? 0x7a5126 : 0x2a9d8f));
+  brim.position.y = 0.44; crown.position.y = 0.58; av.headG.add(brim, crown);
+  av.armL.rotation.x = -0.5; av.armR.rotation.x = -0.5; // hands resting on the counter
+  av.root.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  g.add(av.root);
+  // counter: planks top on a dark base, with the shop's goods on it
+  const top = G.blockMesh(4, 1); top.scale.set(1.5, 0.18, 0.6); top.position.set(0, 1.02, 0.62);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.92, 0.5), lam(0x4a3220)); base.position.set(0, 0.46, 0.62);
+  for (const m of [top, base]) { m.castShadow = m.receiveShadow = true; g.add(m); }
+  const goods = item ? [G.itemMesh('sword_iron'), G.blockMesh(G.WOOL(team), 0.3)] : [G.resMesh('diamond'), G.resMesh('diamond')];
+  goods.forEach((m, i) => { if (!m) return; m.position.set(i ? 0.42 : -0.38, 1.12, 0.62); if (item && !i) { m.scale.setScalar(0.55); m.rotation.set(Math.PI / 2, 0, 0.6); m.position.y = 1.14; } if (m.isMesh) m.position.y = 1.26; g.add(m); });
+  const tag = G.textSprite([{ text: label, color, size: 52, font: '400', family: '"Lilita One", sans-serif' }, { text: 'E  ·  RIGHT CLICK', size: 28, color: '#f4efe4', font: '800' }], { scale: 0.8 });
+  tag.position.y = 2.65; g.add(tag);
+  g.userData.av = av;
   G.scene.add(g);
   return g;
 };
 G.makeBedModel = (team, a, b) => {
   const t = G.TEAMS[team];
   const dx = b.x - a.x, dz = b.z - a.z;
-  const m = G.model('bed', 0, { fit: [0.98, 0.62, 1.96], tint: (mesh, mat) => {
-    // the blanket and pillow get the team colour; the wooden frame stays as it is
-    const c = mat.color; const sat = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
-    return sat > 0.15 || (c.r > 0.6 && c.g > 0.6 && c.b > 0.6) ? (c.r > 0.75 && c.g > 0.75 && c.b > 0.75 ? 0xf2f2f2 : t.color) : null;
-  } });
+  // tint by part: the frame becomes dark wood, the blanket takes the team colour, sheet and pillow stay white
+  const PART = { lambert3: 0x6b4426, lambert4: 0xf3f0ea, lambert5: t.color, lambert6: 0xffffff };
+  const m = G.model('bed', 0, { fit: [0.98, 0.62, 1.96], tint: (mesh, mat) => { const k = Object.keys(PART).find(n => mat.name.endsWith(n)); return k ? PART[k] : null; } });
   const g = new THREE.Group();
   g.position.set((a.x + b.x) / 2 + 0.5, a.y, (a.z + b.z) / 2 + 0.5);
   if (m) { g.add(m); g.rotation.y = Math.atan2(dx, dz); }

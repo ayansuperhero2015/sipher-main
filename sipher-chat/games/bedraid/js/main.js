@@ -9,31 +9,50 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'hi
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.autoClear = false;
 $('game').appendChild(renderer.domElement);
 const scene = G.scene = new THREE.Scene();
-const SKY_TOP = new THREE.Color(0x4f9be8), SKY_BOT = new THREE.Color(0xbfe3ff);
-scene.fog = new THREE.Fog(0xbfe3ff, 70, 190);
+// late-afternoon sky: deep blue overhead, warm haze at the horizon, so islands read against it
+const SKY_TOP = new THREE.Color(0x2f6fd6), SKY_MID = new THREE.Color(0x8cc4f2), SKY_BOT = new THREE.Color(0xe9e4d6);
+scene.fog = new THREE.Fog(0xcfe0ec, 80, 220);
 const camera = G.camera = new THREE.PerspectiveCamera(G.settings.fov, window.innerWidth / window.innerHeight, 0.05, 400);
 scene.add(camera);
-scene.add(new THREE.HemisphereLight(0xdff0ff, 0x6a5a40, 1.15));
-const sun = new THREE.DirectionalLight(0xfff2d8, 1.6); sun.position.set(40, 80, 25); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x5a4630, 0.85));
+const sun = new THREE.DirectionalLight(0xffe2b8, 2.6); sun.position.set(48, 70, 30); scene.add(sun); scene.add(sun.target);
+// real shadows: a 2k shadow map whose box follows the camera
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 220 });
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
+const SUN_DIR = sun.position.clone().normalize();
+G.followSun = (p) => {
+  // snap to whole texels so shadow edges don't shimmer while walking
+  const step = 90 / 2048, x = Math.round(p.x / step) * step, z = Math.round(p.z / step) * step;
+  sun.target.position.set(x, G.SURF, z);
+  sun.position.set(x + SUN_DIR.x * 100, G.SURF + SUN_DIR.y * 100, z + SUN_DIR.z * 100);
+};
 // gradient sky dome
 {
-  const g = new THREE.SphereGeometry(300, 24, 16), cols = [];
+  const g = new THREE.SphereGeometry(300, 32, 20), cols = [];
   const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) { const t = G.clamp(p.getY(i) / 300 * 1.6 + 0.35, 0, 1); const c = SKY_BOT.clone().lerp(SKY_TOP, t); cols.push(c.r, c.g, c.b); }
+  for (let i = 0; i < p.count; i++) {
+    const h = p.getY(i) / 300, c = h < 0.06 ? SKY_BOT.clone().lerp(SKY_MID, G.clamp((h + 0.25) / 0.31, 0, 1)) : SKY_MID.clone().lerp(SKY_TOP, G.clamp((h - 0.06) / 0.55, 0, 1));
+    cols.push(c.r, c.g, c.b);
+  }
   g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  const sky = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  const sky = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: false }));
   sky.renderOrder = -10; camera.add(sky); sky.position.set(0, 0, 0);
-  // sun disc
-  const sd = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({ color: 0xfff6c8, fog: false, transparent: true, opacity: 0.95 }));
-  sd.position.copy(sun.position).normalize().multiplyScalar(280); sd.lookAt(0, 0, 0); camera.add(sd);
+  // square sun with a soft halo (blocky world, blocky sun)
+  const sd = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ color: 0xfff4d6, fog: false, toneMapped: false }));
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshBasicMaterial({ color: 0xffe6b0, fog: false, transparent: true, opacity: 0.22, toneMapped: false, depthWrite: false }));
+  for (const m of [halo, sd]) { m.position.copy(SUN_DIR).multiplyScalar(280); m.lookAt(0, 0, 0); camera.add(m); }
 }
-// blocky clouds
+// blocky clouds (flat-shaded, slightly lit from below by the warm horizon)
 const clouds = new THREE.Group(); scene.add(clouds);
 {
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.88, emissive: 0x666666 });
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, emissive: 0x9aa6b8 });
   for (let i = 0; i < 26; i++) {
     const c = new THREE.Group();
     const n = G.randi(2, 5);
@@ -64,7 +83,8 @@ function setVM(id, team) {
   vmHeld = id; vmItem.clear(); vmEquip = 1;
   vmSleeve.material.color.setHex(G.TEAMS[team].color);
   if (!id) { vmArm.position.set(0.42, -0.42, -0.55); vmArm.rotation.set(0.25, 0.15, 0); vmArm.visible = true; return; }
-  vmArm.visible = false;
+  // the arm stays in view, reaching up to grip whatever is held
+  vmArm.visible = true; vmArm.position.set(0.56, -0.66, -0.5); vmArm.rotation.set(0.55, 0.12, 0);
   const m = G.itemMesh(id, team); if (!m) return;
   const k = G.ITEMS[id].kind;
   vmItem.add(m);
@@ -118,8 +138,8 @@ const game = G.game = {
     // beds, shopkeepers, generators
     for (const m of this.map.teams) {
       this.bedModels[m.team] = G.makeBedModel(m.team, m.bed[0], m.bed[1]);
-      this.keepers.push(G.makeKeeper(m.shop.pos, m.shop.yaw, 'ITEM SHOP', '#ffe27a'));
-      this.keepers.push(G.makeKeeper(m.upg.pos, m.upg.yaw, 'TEAM UPGRADES', '#7af0ff'));
+      this.keepers.push(G.makeKeeper(m.shop.pos, m.shop.yaw, 'ITEM SHOP', '#ffcf3a', 'item', m.team));
+      this.keepers.push(G.makeKeeper(m.upg.pos, m.upg.yaw, 'UPGRADES', '#5fe0d0', 'upg', m.team));
       m.shop.team = m.upg.team = m.team;
       this.gens.push(new G.Gen('team', m.gen, m.team));
     }
@@ -149,7 +169,7 @@ const game = G.game = {
     thirdPerson = false; spectate = null;
     $('hud').classList.remove('hidden');
     G.ui.dirty = true; G.ui.render();
-    G.ui.announce('BED RAID', `Protect your bed and destroy the enemy beds!`, G.TEAMS[this.player.team].css, 4500);
+    G.ui.intro(this.player.team, this.modeName);
     G.audio.event();
     G.lockPointer();
   },
@@ -184,8 +204,7 @@ const game = G.game = {
   },
   onDeath(v, killer, kind) {
     const final = !this.teams[v.team].bedAlive;
-    const how = { void: killer ? 'was knocked into the void by' : 'fell into the void', fall: killer ? 'was knocked off a ledge by' : 'fell to their death', melee: 'was slain by', arrow: 'was shot by', tnt: 'was blown up by' }[kind] || 'was killed by';
-    G.ui.feed(`${G.ui.name(v)} ${v.isPlayer ? how.replace(/^was /, 'were ').replace(/their/, 'your') : how}${killer ? ' ' + G.ui.name(killer) : ''}${final ? ' <span class="final">FINAL KILL!</span>' : ''}`);
+    G.ui.kill(v, killer, kind, final);
     G.fx.burst(new V3(v.pos.x, v.pos.y + 1, v.pos.z), G.TEAMS[v.team].color, 16, { size: 0.15 });
     v.avatar.root.visible = false;
     if (killer) {
@@ -214,7 +233,7 @@ const game = G.game = {
       const left = this.actors.some(a => a.team === tm.id && !a.eliminated);
       if (!left) {
         tm.eliminated = true;
-        G.ui.feed(`<b style="color:${G.TEAMS[tm.id].css}">TEAM ${G.TEAMS[tm.id].name.toUpperCase()}</b> has been eliminated!`);
+        G.ui.feed(`${G.ui.icon('skull', 18)}<b style="color:${G.TEAMS[tm.id].css}">${G.TEAMS[tm.id].name.toUpperCase()}</b><span class="lbl">ELIMINATED</span>`, 'sys');
       }
     }
     const alive = this.teams.filter(t => !t.eliminated);
@@ -242,7 +261,7 @@ const game = G.game = {
     const mine = team === this.player.team;
     G.audio.bedBroken(mine);
     if (actor) actor.stats.beds++;
-    G.ui.feed(`<span class="bedmsg">BED DESTRUCTION</span> <b style="color:${G.TEAMS[team].css}">${G.TEAMS[team].name} Bed</b> ${actor ? 'was broken by ' + G.ui.name(actor) : 'was destroyed'}`);
+    G.ui.feed(`${actor ? G.ui.name(actor) : ''}${G.ui.icon('bed', 18)}<b style="color:${G.TEAMS[team].css}">${G.TEAMS[team].name.toUpperCase()} BED</b><span class="lbl red">BROKEN</span>`, 'sys' + (mine || (actor && actor.isPlayer) ? ' mine' : ''));
     if (mine) G.ui.announce('BED DESTROYED!', 'You will no longer respawn!', '#ff5a4a', 3500);
     else if (actor && actor.isPlayer) G.ui.announce('BED DESTROYED!', `You broke the ${G.TEAMS[team].name} bed!`, G.TEAMS[team].css, 2500);
     // a team with nobody waiting to respawn and no bed is out
@@ -295,7 +314,7 @@ const game = G.game = {
     const c = u.cost[lvl]; if (a.res.diamond < c) return false;
     a.res.diamond -= c; tm.up[id]++; if (id === 'trap') tm.trapArmed = true;
     if (a.isPlayer) G.ui.dirty = true;
-    if (a.team === this.player.team) G.ui.feed(`${G.ui.name(a)} bought <b style="color:#7af0ff">${u.name}${u.max > 1 ? ' ' + ['I', 'II', 'III', 'IV'][lvl] : ''}</b>`);
+    if (a.team === this.player.team) G.ui.feed(`${G.ui.name(a)}<span class="lbl teal">${u.name.toUpperCase()}${u.max > 1 ? ' ' + ['I', 'II', 'III', 'IV'][lvl] : ''}</span>`, 'sys');
     return true;
   },
   /* ---------- items ---------- */
@@ -492,7 +511,7 @@ function playerControl(dt) {
     p.physics(dt, wx, wz, active && K.Space);
     if (p.onGround && Math.hypot(p.vel.x, p.vel.z) > 1) { stepT -= dt * Math.hypot(p.vel.x, p.vel.z); if (stepT <= 0) { stepT = 2.2; G.audio.step(); } }
   }
-  if (!active) { hl.visible = false; crack.visible = false; G.ui.breakRing(0); G.mouse.lPressed = G.mouse.rPressed = false; G.mouse.rReleased = false; if (!G.mouse.r) p.bowDraw = 0; return; }
+  if (!active) { hl.visible = false; crack.visible = false; G.ui.breakRing(0); G.ui.prompt(null); G.mouse.lPressed = G.mouse.rPressed = false; G.mouse.rReleased = false; if (!G.mouse.r) p.bowDraw = 0; return; }
   const A = aim(p), held = p.held(), hd = held ? G.ITEMS[held.id] : null;
   placeCd -= dt;
   // highlight
@@ -501,7 +520,7 @@ function playerControl(dt) {
   // left: attack or dig
   if (G.mouse.l) {
     if (A.act && (G.mouse.lPressed || p.atkCd <= 0)) {
-      if (p.attack(A.act)) vmSwing = 1; else if (G.mouse.lPressed) { vmSwing = 1; G.audio.swing(); }
+      if (p.attack(A.act)) { vmSwing = 1; G.ui.hitmarker(!A.act.alive); } else if (G.mouse.lPressed) { vmSwing = 1; G.audio.swing(); }
       p.breaking = null;
     } else if (A.blk && !A.act) {
       const f = p.dig(dt, A.blk.x, A.blk.y, A.blk.z);
@@ -546,9 +565,7 @@ function playerControl(dt) {
   G.mouse.lPressed = G.mouse.rPressed = false; G.mouse.rReleased = false;
   // prompt near shops
   const k = nearShop(p);
-  const pr = $('prompt');
-  if (k && !pr.classList.contains('show')) { pr.textContent = k === 'item' ? 'Press E — Item Shop' : 'Press E — Team Upgrades'; pr.classList.add('near'); }
-  else if (!k) pr.classList.remove('near');
+  G.ui.prompt(k ? `<kbd>E</kbd>${k === 'item' ? 'Item Shop' : 'Team Upgrades'}` : null);
 }
 
 function updateCamera(dt) {
@@ -583,6 +600,15 @@ function updateCamera(dt) {
   if (Math.abs(camera.fov - want) > 0.05) { camera.fov = G.lerp(camera.fov, want, Math.min(1, dt * 8)); camera.updateProjectionMatrix(); }
 }
 
+// shopkeepers breathe and glance around instead of standing frozen
+function idleKeeper(k, t) {
+  const av = k.userData.av; if (!av) return;
+  const ph = t * 1.4 + k.id;
+  av.body.position.y = Math.sin(ph * 1.6) * 0.012;
+  av.headG.rotation.y = Math.sin(ph * 0.37) * 0.45;
+  av.armR.rotation.x = -0.5 + Math.max(0, Math.sin(ph * 0.5)) * -0.25;
+}
+
 /* ---------- loop ---------- */
 let last = performance.now();
 function frame(now) {
@@ -601,11 +627,15 @@ function tick(dt, t) {
     G.fx.update(dt);
     wd.update();
     G.ui.render();
-    for (const k of game.keepers) k.children[0] && (k.children[0].position.y = Math.sin(t * 2 + k.id) * 0.02);
+    for (const k of game.keepers) idleKeeper(k, t);
+    G.followSun(camera.position);
   } else {
-    // menu: slow orbit around the islands
-    camera.position.set(64 + Math.cos(t * 0.05) * 70, S + 26, 64 + Math.sin(t * 0.05) * 70);
-    camera.lookAt(64, S - 4, 64);
+    // menu: a low, slow drift past the middle island, framed to the right of the menu column
+    const a = t * 0.035;
+    camera.position.set(64 + Math.cos(a) * 46, S + 9, 64 + Math.sin(a) * 46);
+    camera.lookAt(64 + Math.cos(a + 1.9) * 14, S + 3, 64 + Math.sin(a + 1.9) * 14);
+    for (const k of game.keepers) idleKeeper(k, t);
+    G.followSun(new V3(64, 0, 64));
     vm.visible = false;
   }
   renderer.clear();
@@ -617,7 +647,7 @@ G.boot = () => {
   // build a preview world behind the menu
   game.map = G.buildMap(); wd.buildAll();
   for (const m of game.map.teams) game.bedModels[m.team] = G.makeBedModel(m.team, m.bed[0], m.bed[1]);
-  for (const m of game.map.teams) { game.keepers.push(G.makeKeeper(m.shop.pos, m.shop.yaw, 'ITEM SHOP', '#ffe27a')); game.keepers.push(G.makeKeeper(m.upg.pos, m.upg.yaw, 'TEAM UPGRADES', '#7af0ff')); }
+  for (const m of game.map.teams) { game.keepers.push(G.makeKeeper(m.shop.pos, m.shop.yaw, 'ITEM SHOP', '#ffcf3a', 'item', m.team)); game.keepers.push(G.makeKeeper(m.upg.pos, m.upg.yaw, 'UPGRADES', '#5fe0d0', 'upg', m.team)); }
   for (const p of game.map.diamond) game.gens.push(new G.Gen('diamond', p));
   for (const p of game.map.emerald) game.gens.push(new G.Gen('emerald', p));
   G.game.time = 0;

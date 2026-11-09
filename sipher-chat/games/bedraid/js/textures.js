@@ -78,6 +78,23 @@ for (let s = 0; s < 6; s++) {
   });
 }
 
+// Bevel: lighter top/left edge, darker bottom/right edge, so every block reads as a solid toy brick.
+function bevel(name, k = 1) {
+  const i = tiles[name], x0 = (i % COLS) * T, y0 = Math.floor(i / COLS) * T;
+  const img = cx.getImageData(x0, y0, T, T), d = img.data;
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    let f = 1;
+    if (y === 0 || x === 0) f = 1 + 0.16 * k; else if (y === 1 || x === 1) f = 1 + 0.06 * k;
+    if (y === T - 1 || x === T - 1) f = 1 - 0.26 * k; else if (y === T - 2 || x === T - 2) f = 1 - 0.1 * k;
+    const p = (y * T + x) * 4;
+    for (let c = 0; c < 3; c++) d[p + c] = G.clamp(d[p + c] * f, 0, 255);
+  }
+  cx.putImageData(img, x0, y0);
+}
+for (const n of ['stone', 'planks', 'chalk', 'obsidian', 'clay', 'islandstone', 'brick', 'pad', 'log_top']) bevel(n);
+for (const t of G.TEAMS) bevel('wool' + t.id, 0.8);
+bevel('grass_top', 0.35); bevel('grass_side', 0.35); bevel('dirt', 0.35);
+
 const tex = new THREE.CanvasTexture(cv);
 tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
 tex.colorSpace = THREE.SRGBColorSpace;
