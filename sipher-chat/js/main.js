@@ -5,7 +5,7 @@ import {
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 import * as api from "./api.js";
-import { DEFAULT_INVITE } from "./config.js";
+import { DEFAULT_INVITE, PHOTO_SENDERS } from "./config.js";
 import { append, avatar, clear, h, icon, toast } from "./dom.js";
 import { filterFor } from "./filter.js";
 import { auth } from "./firebase.js";
@@ -1007,6 +1007,8 @@ const chatActions = {
   },
   typing: (on) => setTyping(on),
   createPoll: () => pollModal(),
+  // Photos are for the accounts in config.js PHOTO_SENDERS (the rules check too).
+  canSendPhotos: () => !!state.user && PHOTO_SENDERS.includes(state.user.uid),
   // "Play with friends" makes a party and posts its invite here.
   openGames: () =>
     gamesModal({
@@ -1979,8 +1981,11 @@ function forwardMessage(msg) {
         btn.textContent = "Sending…";
         try {
           const path = await t.convo();
-          await api.sendMessage(path, state.user, state.profile, msg.text, {
+          // A photo travels with it only if you may send photos yourself.
+          const photo = msg.image && chatActions.canSendPhotos() ? msg.image : null;
+          await api.sendMessage(path, state.user, state.profile, msg.text || (msg.image && !photo ? "📷 Photo" : ""), {
             forwarded,
+            ...(photo ? { image: photo } : {}),
           });
           const extra = note.value.trim();
           if (extra)

@@ -168,9 +168,11 @@ function apply(ev, past) {
   try {
     const from = actorFor(ev.by);
     if (ev.t === "b") {
-      const l = ev.l || [];
+      const l = Array.isArray(ev.l) ? ev.l : [];
       for (let i = 0; i + 3 < l.length; i += 4) {
         const [x, y, z, id] = [l[i], l[i + 1], l[i + 2], l[i + 3]];
+        // Real block ids at whole positions inside the world only.
+        if (![x, y, z, id].every(Number.isInteger) || !wd.inside(x, y, z) || (id && !G.BLOCKS[id])) continue;
         if (id) wd.set(x, y, z, id, 1);
         else {
           const old = wd.get(x, y, z);
@@ -182,15 +184,22 @@ function apply(ev, past) {
     } else if (ev.t === "bed") {
       game.breakBed(ev.team, from);
     } else if (ev.t === "hit") {
-      if (past || ev.to !== me.uid) return;
+      if (past || ev.to !== me.uid || !from) return;
       // Applied by our own game, so armour, knockback and death work as usual.
+      // Capped at what a real sword hit can do (diamond + sharpness, critical),
+      // so nobody can send a one-shot.
+      const amt = Math.max(0, Math.min(60, Number(ev.amt) || 0));
+      const k = (v) => Math.max(-12, Math.min(12, Number(v) || 0));
+      const kb = ev.kb ? { x: k(ev.kb.x), y: Math.max(0, k(ev.kb.y)), z: k(ev.kb.z) } : undefined;
       replaying = false;
-      game.player.damage(ev.amt, from, ev.kind, ev.kb || undefined);
+      game.player.damage(amt, from, "melee", kb);
     } else if (ev.t === "death") {
       // Their updates may already have marked them dead; the kill feed,
       // loot and final kill still come from this event.
       if (!from || from.eliminated) return;
-      from.res = { iron: 0, gold: 0, diamond: 0, emerald: 0, ...(ev.res || {}) };
+      // The loot their killer takes, within reason.
+      from.res = {};
+      for (const k of G.RES) from.res[k] = Math.max(0, Math.min(999, Math.floor(Number(ev.res?.[k]) || 0)));
       from.alive = false;
       from.hp = 0;
       from.deadUntil = performance.now() + 1500;
@@ -202,7 +211,7 @@ function apply(ev, past) {
       if (ev.t === "upg") applyUpgrade(from, ev.id);
     } else if (ev.t === "arrow" && from) {
       realArrow(from, new V3(...ev.p), new V3(...ev.v), ev.pw);
-    } else if (ev.t === "throw" && from && ev.kind !== "egg") {
+    } else if (ev.t === "throw" && from && (ev.kind === "fireball" || ev.kind === "pearl")) {
       // Eggs lay blocks, which arrive as block changes instead.
       realThrown(ev.kind, from, new V3(...ev.p), new V3(...ev.v));
     } else if (ev.t === "tnt" && from) {
@@ -240,8 +249,10 @@ function listenEvents(run) {
 
 /* ---------- friends' players ---------- */
 
+// Names come from other players, so only plain text gets through (the game
+// shows names inside HTML in places).
 function puppetName(uid) {
-  return String(players[uid]?.name || "Friend").slice(0, 20);
+  return String(players[uid]?.name || "Friend").replace(/[<>&"'`\\]/g, "").slice(0, 20) || "Friend";
 }
 
 function addPuppet(uid, team) {

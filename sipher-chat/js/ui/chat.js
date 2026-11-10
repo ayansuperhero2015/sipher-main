@@ -3,6 +3,7 @@ import { append, avatar, clear, h, icon, toast } from "../dom.js";
 import { createEmojiPicker, replaceShortcodes, searchEmoji } from "../emoji.js";
 import { embedFor } from "../embeds.js";
 import { censor } from "../filter.js";
+import { photoToDataURL, pickImage } from "../image.js";
 import { partyCard, partyIn } from "./games.js";
 import { createGifPicker } from "./gifpicker.js";
 import { openModal } from "./modal.js";
@@ -291,6 +292,69 @@ export function createChat(el, actions) {
     return wrap;
   }
 
+  // A photo in a message (only data URLs of real images; firestore.rules
+  // checks the same). Click to see it full size.
+  function photo(msg) {
+    const src = msg.image;
+    if (typeof src !== "string" || !/^data:image\/(png|jpeg|webp|gif);base64,/.test(src)) return null;
+    const open = () =>
+      openModal({
+        title: "Photo",
+        render: () => h("img", { class: "photo-full", src, alt: "Photo" }),
+      });
+    // Photos load after the message is drawn; stay at the bottom if we were.
+    const stuck = nearBottom();
+    return h(
+      "button",
+      { class: "message-photo", title: "Open photo", onclick: open },
+      h("img", { src, alt: "Photo", onload: () => { if (stuck) scroller.scrollTop = scroller.scrollHeight; } }),
+    );
+  }
+
+  // ---- sending photos (only accounts in config.js PHOTO_SENDERS) ----
+
+  async function sendPhoto(file) {
+    if (!file || !channel || input.disabled || !actions.canSendPhotos()) return;
+    const wait = slowWait();
+    if (wait > 0) return toast(`Slow mode is on. You can send again in ${wait}s.`);
+    let image;
+    try {
+      toast("Preparing photo…");
+      image = await photoToDataURL(file);
+    } catch (err) {
+      return toast(err.message || "Couldn't use that image.", "error");
+    }
+    const raw = input.value.trim();
+    const reply = replying;
+    const extra = { ...replyExtra(), image };
+    input.value = "";
+    drafts.delete(channel.id);
+    autosize(input);
+    cancelReply();
+    stopTyping();
+    noteSent();
+    try {
+      await actions.send(raw ? replaceShortcodes(raw) : "", extra);
+    } catch {
+      lastSent.delete(channel.id);
+      input.value = raw;
+      drafts.set(channel.id, raw);
+      autosize(input);
+      replying = reply;
+      renderReplyBar();
+    }
+  }
+  const photoBtn = h(
+    "button",
+    {
+      class: "icon-btn",
+      title: "Send a photo",
+      hidden: !actions.canSendPhotos(),
+      onclick: async () => sendPhoto(await pickImage()),
+    },
+    icon("image"),
+  );
+
   const input = h("textarea", {
     class: "composer-input",
     rows: 1,
@@ -302,6 +366,14 @@ export function createChat(el, actions) {
       sendTyping();
     },
     onblur: () => closeSuggestions(),
+    // Pasting an image sends it as a photo (for those allowed to).
+    onpaste: (e) => {
+      if (!actions.canSendPhotos()) return;
+      const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+      if (!item) return;
+      e.preventDefault();
+      sendPhoto(item.getAsFile());
+    },
     onkeydown: (e) => {
       if (suggest && !e.isComposing) {
         const n = suggest.items.length;
@@ -410,6 +482,8 @@ export function createChat(el, actions) {
   const morePanel = h(
     "div",
     { class: "more-panel", hidden: true },
+    actions.canSendPhotos() &&
+      moreItem("image", "Send Photo", "From your computer, or paste one", async () => sendPhoto(await pickImage())),
     moreItem("chart", "Create Poll", "Let everyone vote", createPoll),
     moreItem("gamepad", "Games", "Play with people here", () => actions.openGames(), false),
     moreItem("smile", "Emoji", "Pick an emoji", () => emoji.toggle()),
@@ -467,6 +541,7 @@ export function createChat(el, actions) {
       "div",
       { class: "composer-box" },
       moreBtn,
+      photoBtn,
       input,
       emojiBtn,
       gifs.button,
@@ -1118,7 +1193,7 @@ export function createChat(el, actions) {
         embeds.length === 1 && /^https?:\/\/\S+$/.test(msg.text.trim());
       const text = h(
         "div",
-        { class: "message-text", hidden: soleLink && !msg.editedAt },
+        { class: "message-text", hidden: (soleLink || !msg.text) && !msg.editedAt },
         formatText(censor(msg.text, filterRe), mentionRe),
         msg.editedAt &&
           h(
@@ -1129,6 +1204,7 @@ export function createChat(el, actions) {
       );
       content = [
         text,
+        photo(msg),
         embeds.length > 0 &&
           h(
             "div",

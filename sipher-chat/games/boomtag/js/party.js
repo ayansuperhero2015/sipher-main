@@ -66,8 +66,9 @@ function listenEvents(run) {
     if (run !== myRun || !ev || ev.tab === TAB || (ev.at || 0) < joinedAt - 1500) return;
     try {
       if (isHost() && ev.t === "abil") hostAbility(ev);
-      else if (ev.to === me.uid && ev.t === "pow") fromLeader(() => G.applyPowerup(G.player, ev.kind));
-      else if (ev.to === me.uid && ev.t === "fx") applyFx(ev);
+      // Power-ups and knocks only count when they come from the leader's game.
+      else if (ev.to === me.uid && ev.by === meta.host && ev.t === "pow" && G.POWERUPS[ev.kind]) fromLeader(() => G.applyPowerup(G.player, ev.kind));
+      else if (ev.to === me.uid && ev.by === meta.host && ev.t === "fx") applyFx(ev);
     } catch (err) {
       console.warn("Couldn't apply", ev, err);
     }
@@ -79,12 +80,23 @@ function listenEvents(run) {
 const keyOf = (a) => (a === G.player ? me?.uid : a.key);
 const byKey = (k) => (k === me?.uid ? G.player : G.actors.find((a) => a.key === k) || null);
 
+// Everything about other players arrives over the network, and the game
+// shows names and colours inside HTML, so only safe values get through.
+const safeName = (s) => String(s || "Friend").replace(/[<>&"'`\\]/g, "").slice(0, 20) || "Friend";
+const safeAbility = (s) => (G.ABILITIES[s] ? s : "dash");
+const safeHat = (s) => (G.HATS[s] ? s : "none");
+const safeShirt = (c) => {
+  if (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c)) return parseInt(c.slice(1), 16);
+  return Number.isInteger(c) ? c & 0xffffff : 0x8a8a8a;
+};
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
 function addPuppet(key, info) {
   const a = G.makeActor({
-    name: String(info.name || "Friend").slice(0, 20),
-    ability: info.ability || "dash",
-    hat: info.hat || "none",
-    shirt: info.shirt ?? 0x8a8a8a,
+    name: safeName(info.name),
+    ability: safeAbility(info.ability),
+    hat: safeHat(info.hat),
+    shirt: safeShirt(info.shirt),
     look: info.look || null,
   });
   a.key = key;
@@ -130,7 +142,7 @@ function movePuppetsFromPlayers() {
     a.tyaw = p.yaw || 0;
     a.air = !p.g;
     if (p.inv) a.fx.invis = Math.max(a.fx.invis, 0.2);
-    if (p.ab) a.ability = p.ab;
+    if (p.ab) a.ability = safeAbility(p.ab);
   }
 }
 
@@ -183,9 +195,10 @@ function sendPuppetHits() {
 function applyFx(ev) {
   const p = G.player;
   if (!p || !p.alive) return;
-  if (ev.v) { p.vel.set(...ev.v); p.knockT = ev.k; p.grounded = false; }
-  if (ev.fr) { p.fx.frozen = Math.max(p.fx.frozen, ev.fr); p.vel.set(0, p.vel.y, 0); G.ui.toast("Frozen"); A.frozen(p.pos); }
-  if (ev.st) p.fx.stun = Math.max(p.fx.stun, ev.st);
+  const cap = (v, m) => Math.max(-m, Math.min(m, num(v)));
+  if (Array.isArray(ev.v)) { p.vel.set(cap(ev.v[0], 25), cap(ev.v[1], 25), cap(ev.v[2], 25)); p.knockT = cap(ev.k, 1); p.grounded = false; }
+  if (ev.fr) { p.fx.frozen = Math.max(p.fx.frozen, cap(ev.fr, 3)); p.vel.set(0, p.vel.y, 0); G.ui.toast("Frozen"); A.frozen(p.pos); }
+  if (ev.st) p.fx.stun = Math.max(p.fx.stun, cap(ev.st, 1));
 }
 
 // Flags: 1 alive, 2 bomb, 4 frozen, 8 shield, 16 invisible, 32 stunned.
@@ -240,7 +253,8 @@ function applyLive(dt) {
   const mod = G.MODS.find((x) => x.id === L.mod);
   G.mod = { id: L.mod || null, grav: mod?.grav || 1, speed: mod?.speed || 1 };
   const flags = {};
-  for (const [k, v] of Object.entries(L.a || {})) {
+  for (const [k, raw] of Object.entries(L.a || {})) {
+    const v = (Array.isArray(raw) ? raw : []).map(num);
     let a = byKey(k);
     if (!a) {
       const bot = (world.setup?.bots || []).find((b) => b[0] === k);
@@ -249,9 +263,9 @@ function applyLive(dt) {
       a.pos.set(v[0], v[1], v[2]);
       a.target.copy(a.pos);
     }
-    const f = v[4];
+    const f = v[4] | 0;
     flags[k] = f;
-    a.place = v[5]; a.passes = v[6]; a.survived = v[7];
+    a.place = v[5] | 0; a.passes = v[6] | 0; a.survived = v[7] | 0;
     if (a !== G.player) {
       // Friends' players come straight from their own updates; bots and the leader from the leader.
       if (!a.remote) { a.target.set(v[0], v[1], v[2]); a.tyaw = v[3]; a.air = !v[8]; }

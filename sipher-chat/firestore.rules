@@ -66,18 +66,34 @@ service cloud.firestore {
 
     // ---- messages (shared by channels and DMs) ----
 
-    // A new message, optionally replying to or forwarding another one, or
-    // a poll ({ question, options }; the text is the question).
+    // Only these accounts may send photos (AyanDaBeast). js/config.js
+    // PHOTO_SENDERS has the same list; keep the two in sync.
+    function canSendPhotos() {
+      return request.auth.uid in ["48wvx7C8NCfmCzBHlYPuu25Dbq03"];
+    }
+
+    // A photo stored in the message: a PNG/JPEG/WebP/GIF data URL (never
+    // SVG, which can carry scripts), well under Firestore's 1 MiB limit.
+    function validPhoto(v) {
+      return v is string && v.size() <= 750000
+        && v.matches("^data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$");
+    }
+
+    // A new message, optionally replying to or forwarding another one, a
+    // poll ({ question, options }; the text is the question) or a photo
+    // (from canSendPhotos() accounts only; its caption may be empty).
     function validNewMessage() {
       let d = request.resource.data;
-      return d.keys().hasOnly(["text", "authorId", "authorName", "createdAt", "replyTo", "forwarded", "poll"])
+      return d.keys().hasOnly(["text", "authorId", "authorName", "createdAt", "replyTo", "forwarded", "poll", "image"])
         && (!("poll" in d) || (d.poll is map
           && d.poll.keys().hasOnly(["question", "options"])
           && validName(d.poll.question, 200)
           && d.poll.options is list
           && d.poll.options.size() >= 2 && d.poll.options.size() <= 6))
+        && (!("image" in d) || (canSendPhotos() && validPhoto(d.image)))
         && d.authorId == request.auth.uid
-        && validName(d.text, 2000)
+        && d.authorName is string && d.authorName.size() <= 64
+        && (validName(d.text, 2000) || ("image" in d && d.text == ""))
         && d.createdAt == request.time
         && (!("replyTo" in d) || (d.replyTo is map
           && d.replyTo.keys().hasOnly(["id", "authorId", "authorName", "text"])

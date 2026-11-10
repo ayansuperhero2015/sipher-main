@@ -37,6 +37,47 @@ export async function loadImage(file) {
   }
 }
 
+// Photos in messages. firestore.rules allows up to 750,000 characters.
+export const MAX_PHOTO_CHARS = 700_000;
+const PHOTO_SIDE = 1600;
+
+function readDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("Couldn't read that image."));
+    r.readAsDataURL(file);
+  });
+}
+
+// A photo as a data URL small enough to send: shrunk to at most 1600px and
+// re-encoded, stepping the quality and size down until it fits. Small GIFs
+// are sent as they are so they keep their animation.
+export async function photoToDataURL(file) {
+  if (file.type === "image/gif" && file.size * 1.37 < MAX_PHOTO_CHARS) {
+    const url = await readDataURL(file);
+    if (url.startsWith("data:image/gif;base64,") && url.length <= MAX_PHOTO_CHARS) return url;
+  }
+  const bitmap = await loadImage(file);
+  let side = PHOTO_SIDE;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const k = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * k));
+    const hgt = Math.max(1, Math.round(bitmap.height * k));
+    const canvas = h("canvas", { width: w, height: hgt });
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(bitmap, 0, 0, w, hgt);
+    for (const q of [0.85, 0.72, 0.6]) {
+      let url = canvas.toDataURL("image/webp", q);
+      if (!url.startsWith("data:image/webp")) url = canvas.toDataURL("image/jpeg", q);
+      if (url.length <= MAX_PHOTO_CHARS) return url;
+    }
+    side = Math.round(side * 0.75);
+  }
+  throw new Error("That image is too large to send.");
+}
+
 // Draws the square source region (sx, sy, side) of `bitmap` at icon size.
 export function cropToDataURL(bitmap, sx, sy, side, size = ICON_SIZE) {
   const canvas = h("canvas", { width: size, height: size });

@@ -499,8 +499,9 @@ export const POLL_MAX_OPTIONS = 6;
 
 // `extra` can hold replyTo (a message being answered), forwarded
 // ({ authorName, from }) for a message passed on from somewhere else,
-// poll ({ question, options }) and slow (true in a slow-mode channel, which
-// stamps the time so the rules can make you wait).
+// poll ({ question, options }), image (a photo as a data URL; only the
+// accounts in config.js PHOTO_SENDERS may send one) and slow (true in a
+// slow-mode channel, which stamps the time so the rules can make you wait).
 export function sendMessage(convo, user, profile, text, extra = {}) {
   const data = {
     text,
@@ -508,13 +509,14 @@ export function sendMessage(convo, user, profile, text, extra = {}) {
     authorName: profile.displayName,
     createdAt: serverTimestamp(),
   };
+  if (extra.image) data.image = extra.image;
   if (extra.replyTo) {
-    const { id, authorId, authorName, text: quoted } = extra.replyTo;
+    const { id, authorId, authorName, text: quoted, image } = extra.replyTo;
     data.replyTo = {
       id,
       authorId,
       authorName: authorName || "Unknown",
-      text: quoted.slice(0, REPLY_SNIPPET),
+      text: (quoted || (image ? "📷 Photo" : "")).slice(0, REPLY_SNIPPET),
     };
   }
   if (extra.forwarded) data.forwarded = extra.forwarded;

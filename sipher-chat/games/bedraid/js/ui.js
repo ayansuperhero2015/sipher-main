@@ -108,7 +108,9 @@ UI.kill = (v, killer, kind, final) => {
   const mine = (killer && killer.isPlayer) || v.isPlayer;
   UI.feed(`${killer ? nameHtml(killer) : ''}${UI.icon(killer ? ic : (kind === 'void' ? 'void' : 'skull'), 18)}${nameHtml(v)}${final ? '<em class="final">FINAL</em>' : ''}`, mine ? 'mine' : '');
 };
-const nameHtml = a => `<b style="color:${G.TEAMS[a.team].css}">${a.name}</b>`;
+// Names can come from other players in a Sipher party, so they're escaped.
+const escName = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const nameHtml = a => `<b style="color:${G.TEAMS[a.team].css}">${escName(a.name)}</b>`;
 UI.name = nameHtml;
 let annT = 0;
 // big banner: a team-coloured slab with the title stamped on it
