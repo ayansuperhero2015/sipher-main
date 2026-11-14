@@ -2807,6 +2807,15 @@ button.message-avatar {
   letter-spacing: 0.06em;
 }
 
+.game-art-forknife {
+  background: linear-gradient(160deg, #1d6bff 0%, #12b8ff 55%, #0a1a4a 55.2%);
+  color: #fff;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-shadow: 0 4px 0 #0a1a4a;
+}
+
 .game-body {
   display: flex;
   flex-direction: column;

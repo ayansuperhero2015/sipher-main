@@ -29,6 +29,14 @@ const GAMES = [
     blurb:
       "Pass the bomb before it blows. Five arenas, eight abilities to unlock, power-ups, round modifiers, hats and bots.",
   },
+  {
+    id: "forknife",
+    title: "Forknife",
+    art: "FORKNIFE",
+    party: true,
+    blurb:
+      "1v1 build fights. Build walls, floors, ramps and cones, edit them into windows and doors. Ten weapons and five modes. Fight a friend, or a bot solo.",
+  },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
 
