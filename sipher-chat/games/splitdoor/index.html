@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPLIT DOOR X</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,200..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game"></div>
+<div id="fxlayer">
+  <div id="hurt"></div>
+  <div id="flash"></div>
+  <div id="scope" class="hidden"><i></i></div>
+  <div id="nums"></div>
+</div>
+<div id="hud" class="hidden"></div>
+<div id="bars"><i class="t"></i><i class="b"></i></div>
+<div id="menu" class="hidden"></div>
+<div id="pause" class="hidden"></div>
+<div id="end" class="hidden"></div>
+<div id="loading">
+  <div class="ld-mark">SPLIT DOOR<sup>X</sup></div>
+  <div class="ld-sub">BUILDING ARENA</div>
+  <div class="ld-track"><i id="ld-fill"></i></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+window.THREE = THREE;
+window.TA = { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, ShaderPass, BGU, GLTFLoader, SkeletonUtils };
+const files = ['js/core.js', '../shared/avatar.js', 'js/audio.js', 'js/materials.js', 'js/maps.js', 'js/world.js', 'js/portals.js', 'js/fx.js',
+  'js/assets.js', 'js/models.js', 'js/weapons.js', 'js/actors.js', 'js/bot.js', 'js/modes.js', 'js/ui.js', 'js/main.js', 'js/looks.js'];
+const BUILD = Date.now();
+const sub = document.querySelector('.ld-sub');
+try {
+  for (const f of files) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = f + '?v=' + BUILD; s.onload = res; s.onerror = () => rej(new Error('Failed to load ' + f));
+      document.body.appendChild(s);
+    });
+  }
+  try { await Promise.race([document.fonts.load('300 28px "Archivo"'), new Promise(r => setTimeout(r, 2500))]); } catch (e) { /* offline */ }
+  G.boot();
+  // Opened from Sipher's "Play with friends": join the party.
+  if (window.SIPHER_PARTY) import('./js/party.js?v=' + BUILD).catch(err => console.error('Party failed to load', err));
+} catch (e) {
+  sub.textContent = e.message;
+  throw e;
+}
+</script>
+</body>
+</html>

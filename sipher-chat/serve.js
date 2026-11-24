@@ -13,6 +13,7 @@ const types = {
   ".json": "application/json",
   ".png": "image/png",
   ".ico": "image/x-icon",
+  ".glb": "model/gltf-binary",
 };
 
 http

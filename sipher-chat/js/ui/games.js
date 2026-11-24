@@ -37,6 +37,14 @@ const GAMES = [
     blurb:
       "1v1 build fights. Build walls, floors, ramps and cones, edit them into windows and doors. Ten weapons and five modes. Fight a friend, or a bot solo.",
   },
+  {
+    id: "splitdoor",
+    title: "Split Door X",
+    art: "SPLIT DOOR X",
+    party: true,
+    blurb:
+      "Portal arena shooter. Shoot doors onto hex walls and walk, shoot and throw through them. Slayer, FFA, Doorstop, Skeleton Key and Lockpick, with friends on your team and bots filling in.",
+  },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
 
