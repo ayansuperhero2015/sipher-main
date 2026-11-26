@@ -5,8 +5,18 @@
 const IMAGE_EXT = /\.(gif|png|jpe?g|webp|avif)$/i;
 const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
 
-// Returns { kind: "image" | "video", src } for a link, or null.
+// Returns { kind: "image" | "video", src, trusted } for a link, or null.
+// `trusted` is true only for GIPHY, Tenor and Imgur. Anything else could be
+// someone's own server, and loading media from it would hand that person
+// the IP address of everyone who sees the message (an "IP grabber"), so
+// the chat waits for a click before loading it.
 export function embedFor(href) {
+  const embed = classify(href);
+  if (embed) embed.trusted ??= true;
+  return embed;
+}
+
+function classify(href) {
   let url;
   try {
     url = new URL(href);
@@ -54,7 +64,8 @@ export function embedFor(href) {
       return { kind: "video", src: url.href.replace(/\.gifv$/i, ".mp4") };
   }
 
-  if (IMAGE_EXT.test(path)) return { kind: "image", src: url.href };
-  if (VIDEO_EXT.test(path)) return { kind: "video", src: url.href };
+  const trusted = url.protocol === "https:" && host === "i.imgur.com";
+  if (IMAGE_EXT.test(path)) return { kind: "image", src: url.href, trusted };
+  if (VIDEO_EXT.test(path)) return { kind: "video", src: url.href, trusted };
   return null;
 }

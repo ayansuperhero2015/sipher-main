@@ -2295,7 +2295,15 @@ function consumeInviteFromUrl() {
     "",
     location.pathname + (search ? "?" + search : "") + location.hash,
   );
-  joinWithCode(code);
+  // Anyone can send a link like this, so check the code and ask first
+  // instead of joining a stranger's server just because a link was opened.
+  if (!/^[A-Za-z0-9]{4,32}$/.test(code))
+    return toast("That doesn't look like an invite.", "error");
+  confirmModal({
+    title: "Join this server?",
+    message: `This link is an invite to a server (code ${code}). Only join if it came from someone you know.`,
+    confirm: "Join Server",
+  }).then((ok) => ok && joinWithCode(code));
 }
 
 // ---- session lifecycle ----

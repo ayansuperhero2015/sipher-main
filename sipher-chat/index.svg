@@ -38,7 +38,11 @@
     async function latestSha() {
       try {
         const saved = JSON.parse(localStorage.getItem(SHA_KEY) || "null");
-        if (saved && Date.now() - saved.at < SHA_TTL) return saved.sha;
+        // The saved id goes straight into the URL the app's code loads from,
+        // so it must be a plain commit id and can't be dated in the future
+        // (which would keep an old copy of the app forever).
+        const age = saved ? Date.now() - saved.at : -1;
+        if (age >= 0 && age < SHA_TTL && /^[0-9a-f]{40}$/.test(saved.sha)) return saved.sha;
       } catch {}
       const res = await fetch(`https://api.github.com/repos/${REPO}/commits/main`, {
         cache: "no-store",

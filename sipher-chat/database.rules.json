@@ -5,7 +5,10 @@
         ".read": "auth != null && (!$convo.beginsWith('d_') || $convo.contains(auth.uid))",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid && (!$convo.beginsWith('d_') || $convo.contains(auth.uid))",
-          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('at').val() === now)"
+          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('at').val() === now)",
+          "name": { ".validate": true },
+          "at": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     },
@@ -69,8 +72,13 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$key": {
-          ".write": "auth != null",
-          ".validate": "newData.hasChildren(['at', 'by', 'name', 'channel']) && newData.child('at').val() === now && newData.child('by').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('channel').isString() && newData.child('channel').val().length <= 32"
+          ".write": "auth != null && (newData.exists() || auth.uid === $uid)",
+          ".validate": "$key.length <= 100 && newData.hasChildren(['at', 'by', 'name', 'channel']) && newData.child('at').val() === now && newData.child('by').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 64 && newData.child('channel').isString() && newData.child('channel').val().length <= 32",
+          "at": { ".validate": true },
+          "by": { ".validate": true },
+          "name": { ".validate": true },
+          "channel": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     }

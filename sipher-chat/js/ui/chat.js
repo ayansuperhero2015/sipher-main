@@ -256,7 +256,24 @@ export function createChat(el, actions) {
     if (pinned) scroller.scrollTop = scroller.scrollHeight;
   }
 
+  // Media from a site we don't know only loads when you ask for it (see
+  // js/embeds.js): until then the other site learns nothing about you.
+  function gatedMedia(embed, onFail) {
+    const button = h(
+      "button",
+      {
+        type: "button",
+        class: "btn secondary small",
+        title: embed.src,
+        onclick: () => button.replaceWith(media({ ...embed, trusted: true }, onFail)),
+      },
+      `Show ${embed.kind} from ${new URL(embed.src).hostname}`,
+    );
+    return button;
+  }
+
   function media(embed, onFail) {
+    if (!embed.trusted) return gatedMedia(embed, onFail);
     const fail = () => {
       wrap.remove();
       onFail();
@@ -1190,7 +1207,7 @@ export function createChat(el, actions) {
       const embeds = embedsIn(msg.text);
       // A message that is just a GIF link shows only the GIF, like Discord.
       const soleLink =
-        embeds.length === 1 && /^https?:\/\/\S+$/.test(msg.text.trim());
+        embeds.length === 1 && embeds[0].trusted && /^https?:\/\/\S+$/.test(msg.text.trim());
       const text = h(
         "div",
         { class: "message-text", hidden: (soleLink || !msg.text) && !msg.editedAt },

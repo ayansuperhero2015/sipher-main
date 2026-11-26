@@ -20,7 +20,8 @@ The entry point is **`index.svg`**: an SVG document that hosts the UI in a
   (`**bold**`, `*italic*`, `` `code` ``, ` ```code blocks``` `, links)
 - GIFs and media: GIPHY, Tenor and Imgur links, plus direct `.gif`/image/video
   URLs, play inline (no API key needed). A message that is only a GIF link shows
-  just the GIF.
+  just the GIF. Media from any other site shows a "Show image from …" button
+  first, because loading it would give that site the viewer's IP address.
 - GIF search button in the message box (GIPHY, cached to fit the free key's limits)
 - Member list with online/offline presence; owners can kick members
 - Unsent drafts kept per channel; press ↑ in an empty composer to edit your last message
@@ -54,13 +55,15 @@ In the [Firebase console](https://console.firebase.google.com/project/sipher-e3c
 2. **Authentication → Settings → Authorized domains:** add any domain you serve from
    (`localhost` is there by default).
 3. **Firestore Database:** create a database if you haven't yet.
-4. Deploy the security rules (the app relies on them for access control):
+4. Deploy the security rules (the app relies on them for access control).
+   There are two sets, and both must be deployed whenever either file changes:
+   `firestore.rules` (Firestore) and `database.rules.json` (Realtime Database).
 
    ```sh
    npm install -g firebase-tools
    firebase login
    cd sipher-chat
-   firebase deploy --only firestore:rules
+   firebase deploy --only firestore:rules,database
    ```
 
 ## Email links
@@ -142,5 +145,13 @@ firebase deploy      # hosting + rules
   Firestore, so no Firebase Storage bucket (or paid plan) is needed.
 - Deleting a server removes its channels, members and invite. Messages are left orphaned but
   unreadable; purge them with `firebase firestore:delete --recursive servers/<id>` if needed.
+  The server's id is recorded in `deletedServers` so it can never be reused to read them.
+- The main server's invite (`DEFAULT_INVITE` in `js/config.js`) can't be reset or deleted: its
+  server's owner is the admin of all of Sipher, and a freed code could be claimed by anyone.
+- **Serve Sipher from its own address.** jsDelivr puts every project on the same origin
+  (`cdn.jsdelivr.net`), so any other page hosted there can read Sipher's saved sign-in and act
+  as the signed-in user. Firebase Hosting (`firebase deploy`, then `sipher-e3cfb.web.app`)
+  doesn't have this problem. After moving, remove `cdn.jsdelivr.net` from **Authentication →
+  Settings → Authorized domains** and from the API key's referrer list.
 - Because the page is an SVG (XML) document, UI code must build elements with
   `createElementNS` (see `js/dom.js`) and avoid `innerHTML`.

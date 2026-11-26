@@ -20,6 +20,7 @@
 //   passes/{uid}                                let into Sipher (or waiting for it)
 //   bans/{uid}                                  banned from Sipher entirely
 //   config/access                               the access code new people need
+//   deletedServers/{serverId}                   ids of deleted servers (never reused)
 // Typing and unread markers live in the Realtime Database (js/live.js).
 import {
   collection,
@@ -40,6 +41,7 @@ import {
   where,
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+import { DEFAULT_INVITE } from "./config.js";
 import { db } from "./firebase.js";
 
 export const MESSAGE_LIMIT = 2000;
@@ -261,6 +263,10 @@ export async function updateServer(serverId, { name, icon }, extra = {}) {
 export async function regenerateInvite(serverId) {
   const server = await getDoc(doc(db, "servers", serverId));
   const { inviteCode, name } = server.data();
+  // The main server's invite decides who runs Sipher, so firestore.rules
+  // never lets it be deleted (a freed code could be claimed by someone else).
+  if (inviteCode === DEFAULT_INVITE)
+    throw new Error("The main Sipher server's invite can't be reset.");
   const code = newInviteCode();
   const batch = writeBatch(db);
   batch.delete(doc(db, "invites", inviteCode));
@@ -330,6 +336,8 @@ export async function restoreMyServers(uid) {
 export async function deleteServer(uid, serverId) {
   const serverRef = doc(db, "servers", serverId);
   const server = await getDoc(serverRef);
+  if (server.data().inviteCode === DEFAULT_INVITE)
+    throw new Error("The main Sipher server can't be deleted.");
   const [channels, members] = await Promise.all([
     getDocs(collection(serverRef, "channels")),
     getDocs(collection(serverRef, "members")),
@@ -344,6 +352,9 @@ export async function deleteServer(uid, serverId) {
   members.forEach((m) => batch.delete(m.ref));
   batch.delete(doc(db, "invites", server.data().inviteCode));
   batch.delete(doc(db, "users", uid, "servers", serverId));
+  // Marks the id as used up, so nobody can make a new server with it and
+  // read the messages left behind (firestore.rules requires this).
+  batch.set(doc(db, "deletedServers", serverId), { at: serverTimestamp() });
   batch.delete(serverRef);
   await batch.commit();
 }

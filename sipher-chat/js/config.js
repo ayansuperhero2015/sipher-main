@@ -2,7 +2,9 @@
 
 // Every new account is added to the server behind this invite (the main
 // Sipher server). Its owner can also set the GIPHY key in Server Settings.
-// If the invite is ever reset, put the new code here and in firestore.rules.
+// Whoever owns the server behind this invite is the admin of all of Sipher,
+// so firestore.rules (isMainInvite) never lets this invite be reset or
+// deleted. Keep the code here and there the same.
 export const DEFAULT_INVITE = "N4bVJRRD";
 
 // The only accounts allowed to send photos (AyanDaBeast). firestore.rules

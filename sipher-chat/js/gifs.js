@@ -72,13 +72,17 @@ function isFresh(entry, q) {
 // Cached entries store just ids and sizes; URLs are rebuilt here, and ids are
 // checked so a tampered cache entry can't point anywhere but GIPHY.
 function toGifs(results) {
-  return (results || [])
-    .filter((r) => /^[A-Za-z0-9]+$/.test(r.id))
+  // Anyone signed in can write a cache entry, so nothing in it is trusted:
+  // odd shapes are dropped instead of breaking the picker.
+  const size = (n) => (Number.isFinite(n) && n > 0 && n <= 2000 ? n : 200);
+  return (Array.isArray(results) ? results : [])
+    .filter((r) => r && typeof r.id === "string" && /^[A-Za-z0-9]{1,64}$/.test(r.id))
+    .slice(0, RESULTS_PER_CALL)
     .map((r) => ({
       id: r.id,
-      title: r.t || "GIF",
-      width: r.w,
-      height: r.h,
+      title: (typeof r.t === "string" && r.t.slice(0, 80)) || "GIF",
+      width: size(r.w),
+      height: size(r.h),
       preview: `https://media.giphy.com/media/${r.id}/200w.webp`,
       url: `https://media.giphy.com/media/${r.id}/giphy.gif`,
     }));

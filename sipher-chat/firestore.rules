@@ -79,6 +79,13 @@ service cloud.firestore {
         && v.matches("^data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$");
     }
 
+    // Poll answer i, if there is one, is a short piece of text (rules can't
+    // loop, so validNewMessage checks each of the six slots).
+    function validOption(options, i) {
+      return options.size() <= i
+        || (options[i] is string && options[i].size() > 0 && options[i].size() <= 80);
+    }
+
     // A new message, optionally replying to or forwarding another one, a
     // poll ({ question, options }; the text is the question) or a photo
     // (from canSendPhotos() accounts only; its caption may be empty).
@@ -89,7 +96,10 @@ service cloud.firestore {
           && d.poll.keys().hasOnly(["question", "options"])
           && validName(d.poll.question, 200)
           && d.poll.options is list
-          && d.poll.options.size() >= 2 && d.poll.options.size() <= 6))
+          && d.poll.options.size() >= 2 && d.poll.options.size() <= 6
+          && validOption(d.poll.options, 0) && validOption(d.poll.options, 1)
+          && validOption(d.poll.options, 2) && validOption(d.poll.options, 3)
+          && validOption(d.poll.options, 4) && validOption(d.poll.options, 5)))
         && (!("image" in d) || (canSendPhotos() && validPhoto(d.image)))
         && d.authorId == request.auth.uid
         && d.authorName is string && d.authorName.size() <= 64
@@ -97,6 +107,9 @@ service cloud.firestore {
         && d.createdAt == request.time
         && (!("replyTo" in d) || (d.replyTo is map
           && d.replyTo.keys().hasOnly(["id", "authorId", "authorName", "text"])
+          && d.replyTo.get("id", "") is string && d.replyTo.get("id", "").size() <= 64
+          && d.replyTo.get("authorId", "") is string && d.replyTo.get("authorId", "").size() <= 128
+          && d.replyTo.get("authorName", "") is string && d.replyTo.get("authorName", "").size() <= 64
           && d.replyTo.text is string && d.replyTo.text.size() <= 200))
         && (!("forwarded" in d) || (d.forwarded is map
           && d.forwarded.keys().hasOnly(["authorName", "from"])
@@ -165,12 +178,15 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn() || isMe(uid);
       allow create: if isMe(uid)
+        && request.resource.data.keys().hasOnly(["uid", "displayName", "photoURL"])
         && request.resource.data.uid == uid
         && validName(request.resource.data.displayName, 64)
-        && validImage(request.resource.data.get("photoURL", null))
-        && !("username" in request.resource.data)
-        && !("usernameChangedAt" in request.resource.data);
+        && validImage(request.resource.data.get("photoURL", null));
+      // Only the fields the app knows about can change, so a profile can't
+      // be stuffed with anything else (everyone signed in can read it).
       allow update: if isMe(uid)
+        && onlyChanged(["displayName", "photoURL", "about", "username", "usernameChangedAt", "joinedMain"])
+        && request.resource.data.get("joinedMain", false) is bool
         && request.resource.data.uid == uid
         && validName(request.resource.data.displayName, 64)
         && validImage(request.resource.data.get("photoURL", null))
@@ -277,22 +293,38 @@ service cloud.firestore {
 
     // ---- invites ----
 
+    // The main server's invite decides who the admin of all of Sipher is
+    // (isAppAdmin below), so it can never be deleted or made again: if it
+    // could, whoever claimed the freed code for their own server would
+    // become the admin. js/config.js DEFAULT_INVITE has the same code.
+    function isMainInvite(code) {
+      return code == "N4bVJRRD";
+    }
+
     match /invites/{code} {
       // Knowing the code is the secret, so allow get but never list.
       allow get: if signedIn();
       allow list: if false;
-      allow create: if isOwnerAfter(request.resource.data.serverId)
+      allow create: if !isMainInvite(code)
+        && code.matches("^[A-Za-z0-9]{6,32}$")
+        && request.resource.data.keys().hasOnly(["serverId", "serverName"])
+        && validName(request.resource.data.serverName, 50)
+        && isOwnerAfter(request.resource.data.serverId)
         && getAfter(serverPath(request.resource.data.serverId)).data.inviteCode == code;
-      allow update: if isOwner(resource.data.serverId) && onlyChanged(["serverName"]);
-      allow delete: if isOwner(resource.data.serverId);
+      allow update: if isOwner(resource.data.serverId) && onlyChanged(["serverName"])
+        && validName(request.resource.data.serverName, 50);
+      allow delete: if !isMainInvite(code) && isOwner(resource.data.serverId);
     }
 
     // ---- direct messages ----
     // dms/{uidA_uidB}: ids are the two user ids, sorted and joined with "_",
     // so membership can be read straight from the path.
 
+    // Exactly two ids, so nobody can open extra "conversations" such as
+    // dms/{me}_{anything}_{you} that the app never shows or checks blocks on.
     function inDm(dmId) {
-      return signedIn() && request.auth.uid in dmId.split("_");
+      return signedIn() && dmId.split("_").size() == 2
+        && request.auth.uid in dmId.split("_");
     }
 
     match /dms/{dmId} {
@@ -310,8 +342,10 @@ service cloud.firestore {
 
       match /messages/{mid} {
         allow read: if inDm(dmId);
-        // Not while either person has blocked the other.
+        // Only in a conversation that was opened properly (sorted ids), and
+        // not while either person has blocked the other.
         allow create: if inDm(dmId) && validNewMessage()
+          && exists(/databases/$(database)/documents/dms/$(dmId))
           && !blockedEitherWay(dmId.split("_")[0], dmId.split("_")[1]);
         // Both people can react, vote and pin in a DM.
         allow update: if inDm(dmId)
@@ -476,9 +510,20 @@ service cloud.firestore {
         || (isMember(sid) && get(memberPath(sid, request.auth.uid)).data.get("role", "member") == "mod");
     }
 
+    // Deleting a server leaves its messages behind (see deleteServer in
+    // js/api.js). This marker stops anyone making a new server with the
+    // same id, which would let them read those old messages.
+    match /deletedServers/{sid} {
+      allow read, update, delete: if false;
+      allow create: if isOwner(sid)
+        && request.resource.data.keys().hasOnly(["at"])
+        && request.resource.data.at == request.time;
+    }
+
     match /servers/{sid} {
       allow read: if isMember(sid);
       allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/deletedServers/$(sid))
         && request.resource.data.ownerId == request.auth.uid
         && validName(request.resource.data.name, 50)
         && validImage(request.resource.data.get("icon", null))
@@ -501,7 +546,8 @@ service cloud.firestore {
         && request.resource.data.get("filterWords", []).size() <= 50
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["rulesUpdatedAt"])
           || request.resource.data.rulesUpdatedAt == request.time);
-      allow delete: if isOwner(sid);
+      allow delete: if isOwner(sid)
+        && existsAfter(/databases/$(database)/documents/deletedServers/$(sid));
 
       match /members/{uid} {
         allow read: if isMember(sid);
@@ -509,6 +555,7 @@ service cloud.firestore {
         // Either the owner joining their brand-new server, or someone joining
         // with a valid invite code for this server.
         allow create: if isMe(uid) && signedIn()
+          && request.resource.data.keys().hasOnly(["uid", "displayName", "photoURL", "role", "invite", "joinedAt"])
           && request.resource.data.uid == uid
           && validName(request.resource.data.displayName, 64)
           && validImage(request.resource.data.get("photoURL", null))
