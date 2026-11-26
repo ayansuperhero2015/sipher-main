@@ -45,6 +45,16 @@ const GAMES = [
     blurb:
       "Portal arena shooter. Shoot doors onto hex walls and walk, shoot and throw through them. Slayer, FFA, Doorstop, Skeleton Key and Lockpick, with friends on your team and bots filling in.",
   },
+  {
+    // Hosted elsewhere: the tab goes straight to `url`, which must be served
+    // as text/html (rawcdn.githack.com does this for GitHub files; jsDelivr
+    // doesn't). Opening it at its real address keeps its own loading working.
+    id: "geometrydash",
+    title: "Geometry Dash",
+    art: "GEOMETRY DASH",
+    url: "https://rawcdn.githack.com/freebuisness/html/63c1608976000f23e4466c6d3b58f283149eeff5/868-F3.html",
+    blurb: "Jump and fly your way through danger in this rhythm-based action platformer.",
+  },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
 
@@ -57,6 +67,11 @@ export async function launchGame(gameId, getParty) {
   if (!game) return toast("That game isn't available.", "error");
   const tab = window.open("", "_blank");
   if (!tab) return toast("Allow pop-ups for this site to play.", "error");
+  if (game.url) {
+    tab.opener = null;
+    tab.location = game.url;
+    return;
+  }
   try {
     const party = getParty ? await getParty() : null;
     const base = new URL(`../../games/${game.id}/`, import.meta.url).href;
