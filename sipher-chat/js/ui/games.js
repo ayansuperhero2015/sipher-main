@@ -45,14 +45,6 @@ const GAMES = [
     blurb:
       "Portal arena shooter. Shoot doors onto hex walls and walk, shoot and throw through them. Slayer, FFA, Doorstop, Skeleton Key and Lockpick, with friends on your team and bots filling in.",
   },
-  {
-    // Hosted elsewhere: `url` is the page to open instead of games/<id>/.
-    id: "geometrydash",
-    title: "Geometry Dash",
-    art: "GEOMETRY DASH",
-    url: "https://cdn.jsdelivr.net/gh/freebuisness/html@63c1608976000f23e4466c6d3b58f283149eeff5/868-F3.html",
-    blurb: "Jump and fly your way through danger in this rhythm-based action platformer.",
-  },
 ];
 const byId = (id) => GAMES.find((g) => g.id === id);
 
@@ -67,20 +59,15 @@ export async function launchGame(gameId, getParty) {
   if (!tab) return toast("Allow pop-ups for this site to play.", "error");
   try {
     const party = getParty ? await getParty() : null;
-    const pageUrl =
-      game.url || new URL(`../../games/${game.id}/index.html`, import.meta.url).href;
-    const base = new URL("./", pageUrl).href;
-    const res = await fetch(pageUrl);
+    const base = new URL(`../../games/${game.id}/`, import.meta.url).href;
+    const res = await fetch(base + "index.html");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    // Only the first <base> counts, so keep the page's own if it has one
-    // (some hosted games load their files from somewhere else).
     const setup =
-      (/<base\s/i.test(html) ? "" : `<base href="${base}">`) +
+      `<base href="${base}">` +
       (party
         ? `<script>window.SIPHER_PARTY = ${JSON.stringify(party).replace(/</g, "\\u003c")};</script>`
         : "");
-    const page = html.replace(/<head>/i, `<head>${setup}`);
+    const page = (await res.text()).replace(/<head>/i, `<head>${setup}`);
     tab.location = URL.createObjectURL(new Blob([page], { type: "text/html" }));
   } catch (err) {
     console.error(err);
